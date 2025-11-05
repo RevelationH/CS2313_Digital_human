@@ -582,7 +582,47 @@ function typeWriter(ele, text, speed = 16) {
     }
     requestAnimationFrame(pump);
 }
-        
+
+/*
+function sendMessage() {
+    const inputBox = document.getElementById('inputBox');
+    const msg = inputBox.value.trim();
+    if (!msg) return;
+
+    /* 1. 用户消息立即上屏 
+    addMessage(msg, 'user');
+
+    /* 2. 清空输入框并复位高度 
+    inputBox.value = '';
+    inputBox.style.height = 'auto';
+
+    /* 3. 加载动画 
+    showLoading();
+
+    fetch('/human', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            text: msg,
+            type: 'echo',
+            interrupt: true,
+            sessionid: +document.getElementById('sessionid').value
+        }),
+    })
+    .then(r => r.json())
+    .then(json => {
+        hideLoading();                       // 1. 隐藏加载动画
+        const botEle = addMessage('', 'assistant'); // 2. 先插入空壳
+        typeWriter(botEle, json.reply || '（无返回）'); // 3. 打字机效果
+    })
+    .catch(err => {
+        hideLoading();
+        const botEle = addMessage('', 'assistant');
+        typeWriter(botEle, '出错：' + err);
+    });
+}
+*/
+
 function sendMessage() {
     const inputBox = document.getElementById('inputBox');
     const msg = inputBox.value.trim();
@@ -611,8 +651,19 @@ function sendMessage() {
     .then(r => r.json())
     .then(json => {
         hideLoading();                       // 1. 隐藏加载动画
-        const botEle = addMessage('', 'assistant'); // 2. 先插入空壳
-        typeWriter(botEle, json.reply || '（无返回）'); // 3. 打字机效果
+        
+        // 检查是否是 Quiz 响应
+        if (json.action === 'open_quiz' && json.quiz_url) {
+            // 在新标签页打开 Quiz 系统
+            window.open(json.quiz_url, '_blank');
+            // 显示回复消息
+            const botEle = addMessage(json.reply || 'Quiz system started!', 'assistant');
+            typeWriter(botEle, json.reply || 'Quiz system started!');
+        } else {
+            // 正常处理其他回复
+            const botEle = addMessage('', 'assistant');
+            typeWriter(botEle, json.reply || '（无返回）');
+        }
     })
     .catch(err => {
         hideLoading();

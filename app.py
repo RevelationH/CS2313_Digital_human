@@ -54,6 +54,7 @@ from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 import wave
 import io
+import webbrowser
 
 #database
 from db import fire_db
@@ -286,7 +287,8 @@ async def human(request):
             
             # 在后台启动 QuizApp 服务器
             quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
-            
+            print(f"Quiz system ready at: {quiz_url}")
+
             # 返回给前端的响应 - 包含Quiz URL
             rae_answer = f"Quiz system started! The quiz interface will open in a new tab."
             return web.Response(
@@ -654,7 +656,10 @@ if __name__ == '__main__':
     rae = re_and_exc(user)
     input_intent = intent(user)
     avatar_input = avatar_text(user)
-    quiz_APP = QuizApp(user)
+    quiz_APP = QuizApp(user, host='0.0.0.0', port=5001)
+    print(f"QuizApp initialized:")
+    print(f"  - Server will listen on: 0.0.0.0:{quiz_APP.port}")
+    print(f"  - Accessible at: http://{quiz_APP.local_ip}:{quiz_APP.port}")
 
     opt.customopt = []
     if opt.customvideo_config!='':
