@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Delete Your Account</h2>
+<p>
+    Are you sure you want to delete your account? <br>
+    <b>This will permanently remove all your data, including your answers and progress. This action cannot be undone.</b>
+</p>
+<form method="post">
+    <button type="submit" style="color:red;">Yes, Delete My Account</button>
+    <a href="{{ url_for('dashboard') }}" style="margin-left:20px;">Cancel</a>
+</form>
+{% endblock %}

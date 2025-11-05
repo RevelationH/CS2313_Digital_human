@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Import Knowledge Points (Kimi)</h2>
+
+<form method="post" enctype="multipart/form-data" action="{{ url_for('admin_kp_import') }}">
+    <div style="margin-bottom:10px;">
+        <label><b>Upload file</b> (.pdf .pptx .docx .txt):</label>
+        <input type="file" name="file" accept=".pdf,.pptx,.docx,.txt">
+    </div>
+
+    <div style="margin:10px 0;">— OR —</div>
+
+    <div style="margin-bottom:10px;">
+        <label><b>Paste text (optional)</b>:</label><br>
+        <textarea name="raw_text" rows="10" cols="80" placeholder="Paste course text here..."></textarea>
+    </div>
+
+    <div style="margin-bottom:10px;">
+        <label><b>Knowledge Point Description</b>:</label><br>
+        <textarea name="description" rows="4" cols="80" placeholder="Provide a brief description of the knowledge point..."></textarea>
+    </div>
+
+    <div style="margin-bottom:10px;">
+        <label><b>Questions (Multiple Choice / True/False)</b>:</label><br>
+        <textarea name="questions" rows="4" cols="80" placeholder="List questions in a simple format: 'What is X?', 'True/False: Y'"></textarea>
+    </div>
+
+    <button type="submit">AI Summarize</button>
+    <a href="{{ url_for('admin_dashboard') }}" style="margin-left:20px;">Cancel</a>
+</form>
+{% endblock %}

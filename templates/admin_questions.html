@@ -1,0 +1,45 @@
+{# templates/admin_questions.html #}
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Questions in “{{ kp_name }}” <small style="font-size:80%;color:#888;">(list: {{ list_id }})</small></h2>
+
+<!-- 1. 生成题目（Kimi） ----------------------------------------------------->
+<p>
+    <a href="{{ url_for('generate_questions',
+                        list_id=list_id, kp_name=kp_name) }}">
+        <button type="button">Generate Questions from Kimi</button>
+    </a>
+</p>
+
+<!-- 2. 手动添加题目 --------------------------------------------------------->
+<form method="post"
+      action="{{ url_for('admin_question_add',
+                         list_id=list_id, kp_name=kp_name) }}">
+    <input name="q_question"     placeholder="Question content" required style="width:300px;">
+    <input name="q_answer"       placeholder="Answer"           required>
+    <input name="q_explanation"  placeholder="Explanation"      required>
+    <button type="submit">Add Question</button>
+</form>
+
+<!-- 3. 题目列表 ------------------------------------------------------------->
+<ul style="margin-top:16px;">
+    {% for q in kp.questions %}
+        <li style="margin-bottom:10px;">
+            {{ q.question }}<br>
+            <b>Answer:</b> {{ q.answer }}<br>
+            <b>Explanation:</b> {{ q.explanation }}
+            <a href="{{ url_for('admin_question_delete',
+                                list_id=list_id,
+                                kp_name=kp_name,
+                                q_id=q.id) }}"
+               onclick="return confirm('Delete this question?');">[Delete]</a>
+        </li>
+    {% else %}
+        <li style="color:#888;">— no questions yet —</li>
+    {% endfor %}
+</ul>
+
+<!-- 4. 返回 --------------------------------------------------------------->
+<p><a href="{{ url_for('admin_dashboard') }}">Back to Knowledge Point List</a></p>
+{% endblock %}

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebRTC webcam</title>
+        <style>
+        button {
+            padding: 8px 16px;
+        }
+    
+        video {
+            width: 100%;
+        }
+    
+        .option {
+            margin-bottom: 8px;
+        }
+    
+        #media {
+            max-width: 1280px;
+        }
+    
+        .audio-container {
+            margin-top: 2rem;
+        }
+    
+        #loading-spinner {
+            display: none; /* 默认隐藏 */
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 10px;
+            /* display: inline-block; */
+            vertical-align: middle;
+        }
+    
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    
+        .form-inline {
+            display: flex;
+            flex-direction: column;
+        }
+    
+        .form-group {
+            margin-bottom: 10px;
+        }
+    
+        .btn-container {
+            display: flex;
+            align-items: center;
+        }
+    
+        .btn {
+            margin-right: 10px;
+        }
+        </style>
+    </head>
+    <body>
+    
+    <div class="option">
+        <input id="use-stun" type="checkbox"/>
+        <label for="use-stun">Use STUN server</label>
+    </div>
+    <button id="start" onclick="start()">Start</button>
+    <button id="stop" style="display: none" onclick="stop()">Stop</button>
+    <button class="btn btn-primary" id="btn_start_record">Start Recording</button>
+    <button class="btn btn-primary" id="btn_stop_record" disabled>Stop Recording</button>
+    <input type="hidden" id="sessionid" value="0">
+    <form class="form-inline" id="echo-form">
+        <div class="form-group">
+          <p>input text</p>
+    
+          <textarea cols="2" rows="3" style="width:600px;height:50px;" class="form-control" id="message">test</textarea>
+        </div>
+        <div class="btn-container">
+            <button type="submit" class="btn btn-default">Send</button>
+            <!-- 将 loading-spinner 放置在 Send 按钮旁边 -->
+            <div id="loading-spinner"></div>
+        </div>
+    </form>
+
+<div style="display:flex; gap:1rem; align-items:flex-start;">
+
+    <!-- 左侧：你原来的视频区 -->
+    <div id="media">
+        <h2>Media</h2>
+        <audio id="audio" autoplay></audio>
+        <video id="video" style="width:1100px;" autoplay playsinline></video>
+    </div>
+
+    <!-- 右侧：聊天面板 -->
+    <div id="chat-wrapper" style="
+            flex:0 0 420px;          /* 固定宽度，不要它撑破 */
+            height:620px;            /* 与视频等高 */
+            border:1px solid #ccc;
+            border-radius:8px;
+            display:flex;
+            flex-direction:column;
+            overflow:hidden;">
+        <div id="chat-messages" style="
+                flex:1 1 auto;
+                padding:1rem;
+                overflow-y:auto;
+                background:#fafafa;"></div>
+    </div>
+
+</div>
+
+<style>
+  .msg-user { text-align:right;color:#0b74d5; }
+  .msg-bot { text-align:left; color:#111; }
+  .msg-box{
+      display:inline-block;
+      padding:6px 10px;
+      margin:4px 0;
+      border-radius:6px;
+      max-width:70%;
+      background:#f1f1f1;
+  }
+  .typing-cursor::after{ content:'|'; animation:blink 1s infinite; }
+  @keyframes blink{50%{opacity:0;}}
+</style>
+
+
+
+<script src="client.js"></script>
+<script type="text/javascript" src="http://cdn.sockjs.org/sockjs-0.3.4.js"></script>
+<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+</body>
+<script type="text/javascript" charset="utf-8">
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('loading-spinner').style.display = 'none';
+    });
+    $(document).ready(function() {
+        // 现有功能保持不变
+
+        $('#btn_start_record').click(function() {
+            if (!isRecording) {
+                startRecording();
+            }
+        });
+
+        $('#btn_stop_record').click(function() {
+            if (isRecording) {
+                stopRecording();
+            }
+        });
+    });
+
+    function addMsg(role, text){
+        const box = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = role==='user' ? 'msg-user' : 'msg-bot';
+        div.innerHTML = `<span class="msg-box ${role==='bot'?'typing-cursor':''}">${text}</span>`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        return div.querySelector('.msg-box');
+    }
+
+    // 打字机效果
+    function typeWriter(ele, text, speed=60){
+        let i=0;
+        const timer = setInterval(()=>{
+            ele.textContent += text[i++];
+            if(i===text.length){
+                clearInterval(timer);
+                ele.classList.remove('typing-cursor');
+            }
+        }, speed);
+    }
+
+
+    let mediaRecorder;
+    let chunks = [];
+    let isRecording = false;
+
+    function startRecording() {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm' // 或者 'audio/ogg'
+                    });
+                    mediaRecorder.ondataavailable = function(event) {
+                        // 收集音频数据片段
+                        chunks.push(event.data); 
+                    };
+                    mediaRecorder.onstop = function() {
+                        // 创建 Blob 并发送
+                        const blob = new Blob(chunks, { type: 'audio/wav' });
+                        sendAudioToBackend(blob);
+                        chunks = []; // 重置 chunks
+                        isRecording = false;
+                        $('#btn_start_record').prop('disabled', false);
+                        $('#btn_stop_record').prop('disabled', true);
+                        console.log('Recording stopped...');
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    $('#btn_start_record').prop('disabled', true);
+                    $('#btn_stop_record').prop('disabled', false);
+                    console.log('Recording started...');
+                })
+                .catch(err => {
+                    console.error('Error accessing microphone:', err);
+                    alert('Failed to access microphone. Please allow microphone permissions.');
+                });
+        } else {
+            console.error('getUserMedia is not supported in this browser.');
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    }
+
+    function sendAudioToBackend(blob) {
+        
+        document.getElementById('loading-spinner').style.display = 'block';
+
+        console.log('Sending audio to backend...');
+        console.log('Audio Blob type:', blob.type);  
+        console.log('Audio size:', blob.size, 'bytes'); 
+
+        const formData = new FormData();
+        formData.append('file', blob, 'recording.wav');
+        formData.append('sessionid', parseInt(document.getElementById('sessionid').value));
+        formData.append('type', 'audio');
+
+        console.log('form data setting completed...');
+        fetch('/audio_human', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            // 请求完成后隐藏旋转图标
+            document.getElementById('loading-spinner').style.display = 'none';
+            return response.json();
+        })
+        console.log('fetch setting completed...');
+    }
+
+    
+    // 现有功能保持不变
+    /**
+    $('#echo-form').on('submit', function(e) {
+        e.preventDefault();
+        var message = $('#message').val();
+        console.log('Sending: ' + message);
+    
+        // 显示旋转图标
+        document.getElementById('loading-spinner').style.display = 'block';
+    
+        console.log('sessionid: ', document.getElementById('sessionid').value);
+    
+        fetch('/human', {
+            body: JSON.stringify({
+                text: message,
+                type: 'echo',
+                interrupt: true,
+                sessionid: parseInt(document.getElementById('sessionid').value),
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            method: 'POST'
+        })
+        .then(response => {
+            // 请求完成后隐藏旋转图标
+            document.getElementById('loading-spinner').style.display = 'none';
+            return response.json();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // 如果发生错误也隐藏旋转图标
+            document.getElementById('loading-spinner').style.display = 'none';
+        });
+
+        $('#message').val('');
+    });
+    **/
+    $('#echo-form').on('submit', function(e) {
+        e.preventDefault();
+        const message = $('#message').val().trim();
+        if(!message) return;
+
+        // 1. 用户消息进聊天框
+        addMsg('user', message);
+        $('#message').val('');
+
+        // 2. loading 图标
+        document.getElementById('loading-spinner').style.display = 'block';
+
+        fetch('/human', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                text: message,
+                type: 'echo',
+                interrupt: true,
+                sessionid: +document.getElementById('sessionid').value
+            })
+        })
+        .then(r=>r.json())
+        .then(json=>{
+            document.getElementById('loading-spinner').style.display = 'none';
+            // 3. 把后端给的 clean_answer 逐字打印
+            const botEle = addMsg('bot', '');
+            typeWriter(botEle, json.reply||'（无返回）', 60);
+        })
+        .catch(err=>{
+            document.getElementById('loading-spinner').style.display = 'none';
+            const botEle = addMsg('bot', '');
+            typeWriter(botEle, '出错：'+err, 60);
+        });
+    });
+
+</script>
+</html>

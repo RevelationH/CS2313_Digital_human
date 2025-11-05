@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>答题</h2>
+<p>{{question.content}}</p>
+<form method="post">
+    <input name="user_answer" required>
+    <button type="submit">提交答案</button>
+</form>
+{% endblock %}

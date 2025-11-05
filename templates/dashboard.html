@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  :root{--bg:#0b1020;--card:#121932;--muted:#9aa3b2;--text:#e7ecf3;--primary:#6c7cff;--primary-600:#5768ff;--accent:#22d3ee;--ring:0 0 0 3px rgba(108,124,255,.25);--radius:16px;--shadow-lg:0 10px 30px rgba(0,0,0,.35);--shadow-md:0 12px 24px rgba(16,24,40,.25)}
+  @media(prefers-color-scheme:light){:root{--bg:#f6f7fb;--card:#fff;--muted:#64748b;--text:#0f172a;--primary:#4f46e5;--primary-600:#4338ca;--accent:#0891b2;--ring:0 0 0 4px rgba(79,70,229,.18);--shadow-lg:0 20px 40px rgba(2,6,23,.15);--shadow-md:0 12px 24px rgba(2,6,23,.1)}}
+  body{background:var(--bg)}
+  .wrap{max-width:1200px;margin:40px auto;padding:0 20px;color:var(--text)}
+  .hero{position:relative;overflow:hidden;border-radius:calc(var(--radius) + 6px);background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;padding:28px;box-shadow:var(--shadow-lg)}
+  .hero h2{margin:0;font-size:28px;display:flex;align-items:center;gap:10px}
+  .hero .meta{opacity:.9;font-size:14px;margin-top:6px}
+
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:20px}
+  .toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .links{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{appearance:none;border:0;border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer;transition:transform .02s ease,box-shadow .2s ease,background .2s ease}
+  .btn:active{transform:translateY(1px)}
+  .btn-p{background:var(--primary);color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.35)}.btn-p:hover{background:var(--primary-600)}
+  .btn-s{background:transparent;color:var(--text);border:1px solid rgba(148,163,184,.35)}
+  .input{border:1px solid rgba(148,163,184,.28);background:rgba(255,255,255,.04);color:var(--text);border-radius:10px;padding:10px 12px;min-width:260px}
+  .input:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
+  .muted{color:var(--muted)}
+
+  details.kp-group{border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:14px;background:rgba(255,255,255,.03)}
+  details.kp-group+details.kp-group{margin-top:14px}
+  summary.kp-sum{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  summary.kp-sum::-webkit-details-marker{display:none}
+  .sum-left{display:flex;align-items:center;gap:10px}
+  .badge{display:inline-flex;gap:6px;align-items:center;border-radius:999px;padding:6px 10px;border:1px solid rgba(148,163,184,.35);font-size:12px}
+  .kp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}
+  @media(max-width:1100px){.kp-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:640px){.kp-grid{grid-template-columns:1fr}}
+
+  .kp-card{border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:14px;background:rgba(255,255,255,.03);display:grid;gap:8px;min-height:140px}
+  .kp-title{font-weight:700}
+  .kp-desc{font-size:14px;color:var(--muted);line-height:1.45;max-height:3.8em;overflow:hidden}
+  .kp-actions{display:flex;justify-content:space-between;align-items:center}
+  .link{color:var(--primary);text-decoration:none;font-weight:600}
+  .link:hover{text-decoration:underline}
+  .ghost{opacity:.6}
+  .nores{padding:10px;border:1px dashed rgba(148,163,184,.35);border-radius:12px;text-align:center;color:var(--muted)}
+</style>
+
+<div class="wrap" aria-labelledby="page-title">
+  <div class="hero">
+    <h2 id="page-title">Welcome, {{ username }}!</h2>
+    <div class="meta">Pick a knowledge point to start practicing. Use search to find quickly.</div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <div class="links">
+        <a class="btn btn-p" href="{{ url_for('analysis') }}">Learning Analysis & AI Practice</a>
+        <a class="btn btn-s" href="{{ url_for('wrongbook') }}">Wrong Question Book</a>
+        <a class="btn btn-s" href="{{ url_for('delete_account') }}" style="border-color:rgba(239,68,68,.35);color:#fecaca;">Delete My Account</a>
+        <!--<a class="btn btn-s" href="{{ url_for('logout') }}">Logout</a> -->
+        <a class="btn btn-s" href="javascript:if(confirm('Close this window?')) window.close();">Logout</a>
+      </div>
+      {% if session.get('username') == 'admin' %}
+      <div class="links">
+        <a class="btn btn-s" href="{{ url_for('admin_dashboard') }}"><b>Admin: Knowledge Points</b></a>
+        {% if url_for %}
+          <a class="btn btn-s" href="{{ url_for('admin_users') }}">Admin: Users Overview</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar" style="margin-bottom:10px;">
+      <input id="kp-search" class="input" placeholder="Search knowledge points…" aria-label="Search knowledge points">
+      <div class="links">
+        <button class="btn btn-s" id="expand-all" type="button">Expand all</button>
+        <button class="btn btn-s" id="collapse-all" type="button">Collapse all</button>
+      </div>
+    </div>
+
+    {% set grouped = kps | groupby('list_id') %}
+    <div id="groups">
+    {% for grp in grouped %}
+      {% set group_id = grp.grouper or '(Uncategorized)' %}
+      <details class="kp-group" open data-group="{{ group_id|e }}">
+        <summary class="kp-sum">
+          <div class="sum-left">
+            <span style="font-weight:700">{{ group_id }}</span>
+            <span class="badge" title="Items in this list">{{ grp.list|length }} items</span>
+          </div>
+          <span class="muted">Click to toggle</span>
+        </summary>
+        <div class="kp-grid">
+          {% for kp in grp.list %}
+          <div class="kp-card" data-name="{{ (kp.name ~ ' ' ~ (kp.description or '') ~ ' ' ~ group_id)|lower|e }}">
+            <div class="kp-title">{{ kp.name }}</div>
+            {% if kp.description %}
+            <div class="kp-desc">{{ kp.description }}</div>
+            {% else %}
+            <div class="kp-desc ghost">No description</div>
+            {% endif %}
+            <div class="kp-actions">
+              <span class="badge">{{ kp.questions|length if kp.questions else 0 }} Q</span>
+              <a class="link" href="{{ url_for('practice', list_id=kp.list_id, kp_name=kp.name) }}">Practice →</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="nores" hidden>No matches in this list.</div>
+      </details>
+    {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById('kp-search');
+  const groups = document.getElementById('groups');
+  const expand = document.getElementById('expand-all');
+  const collapse = document.getElementById('collapse-all');
+
+  function filter(){
+    const q = (input.value || '').toLowerCase();
+    groups.querySelectorAll('details.kp-group').forEach(group => {
+      let visible = 0;
+      const cards = group.querySelectorAll('.kp-card');
+      cards.forEach(card => {
+        const name = card.getAttribute('data-name') || card.innerText.toLowerCase();
+        const show = !q || name.includes(q);
+        card.style.display = show ? '' : 'none';
+        if(show) visible++;
+      });
+      const nores = group.querySelector('.nores');
+      if(nores){ nores.hidden = visible !== 0; }
+      // 自动展开含结果的分组
+      if(q){ group.open = visible > 0; }
+    });
+  }
+
+  input?.addEventListener('input', filter);
+  expand?.addEventListener('click', () => {
+    groups.querySelectorAll('details.kp-group').forEach(g => g.open = true);
+  });
+  collapse?.addEventListener('click', () => {
+    groups.querySelectorAll('details.kp-group').forEach(g => g.open = false);
+  });
+})();
+</script>
+{% endblock %}

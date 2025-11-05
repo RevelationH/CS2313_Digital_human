@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Review &amp; Edit Knowledge Points</h2>
+
+{% if source_filename %}
+<p>Source file: <b>{{ source_filename }}</b></p>
+{% endif %}
+
+<div style="margin:10px 0;">
+    <details>
+        <summary>Show Kimi raw output</summary>
+        <pre style="white-space:pre-wrap;border:1px solid #ccc;padding:8px;margin-top:6px;">{{ ai_raw }}</pre>
+    </details>
+</div>
+
+<form method="post" action="{{ url_for('admin_kp_import_save') }}">
+    <!-- 隐藏 list_id：由 /admin/kp_import 传递 -->
+    <input type="hidden" name="list_id" value="{{ list_id }}">
+
+    <p><b>Editable Knowledge Points:</b></p>
+    <div id="kp-list">
+        {% for kp in kp_list %}
+            <div class="kp-row" style="margin-bottom:6px;">
+                <!-- 名称 -->
+                <input name="kp_names[]" value="{{ kp.name }}" placeholder="Name" style="width:420px;">
+                <!-- 描述 -->
+                <textarea name="kp_descriptions[]" placeholder="Enter description" style="width:420px;">{{ kp.description }}</textarea>
+                <!-- 题目列表（可选；JSON 数组或一行一题皆可） -->
+                <textarea name="kp_questions[]" placeholder='Questions (optional)' style="width:420px;">{{ kp.questions|tojson if kp.questions else '' }}</textarea>
+
+                <button class="del-btn" onclick="event.preventDefault(); this.parentElement.remove();">Delete</button>
+            </div>
+        {% endfor %}
+    </div>
+
+    <p>
+        <button id="add-btn" onclick="event.preventDefault(); addRow();">+ Add one</button>
+    </p>
+
+    <button type="submit">Save to Database</button>
+    <a href="{{ url_for('admin_kp_import') }}" style="margin-left:20px;">Back</a>
+</form>
+
+<script>
+function addRow() {
+    const div = document.createElement('div');
+    div.className = 'kp-row';
+    div.style.marginBottom = '6px';
+    div.innerHTML =
+        '<input name="kp_names[]" placeholder="Name" style="width:420px;">' +
+        '<textarea name="kp_descriptions[]" placeholder="Enter description" style="width:420px;"></textarea>' +
+        '<textarea name="kp_questions[]" placeholder="Questions (optional)" style="width:420px;"></textarea>' +
+        '<button class="del-btn" onclick="event.preventDefault(); this.parentElement.remove();">Delete</button>';
+    document.getElementById('kp-list').appendChild(div);
+}
+</script>
+{% endblock %}     

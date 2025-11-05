@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Your Wrong Questions</h2>
+
+{% if wrong_answers %}
+    <ul>
+        {% for answer in wrong_answers %}
+            <li>
+                <b>Question:</b> {{ answer['question'] }}<br>
+                <b>Your Answer:</b> {{ answer['user_answer'] }}<br>
+                <b>Correct Answer:</b> {{ answer['std_answer'] }}<br>
+                <b>Timestamp:</b> {{ answer['timestamp'] }}<br>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No wrong questions recorded.</p>
+{% endif %}
+
+<p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
+{% endblock %}

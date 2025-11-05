@@ -1,0 +1,403 @@
+{
+  "answer_records": [
+    {
+      "id": "Gj3TFT4GXVb2WRM9quSS",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:43:23.703687+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "After int nums[3]; which statement correctly assigns 7 to the last element?\nOptions:\nA. nums[3] = 7;\nB. nums[2] = 7;\nC. nums{2} = 7;\nD. nums(2) = 7;",
+      "ai_answer": "B",
+      "is_correct": false
+    },
+    {
+      "id": "JwPhbRHyOHEWSIHCKdtD",
+      "user_id": "1",
+      "knowledge_point": "",
+      "timestamp": "2025-09-04T17:35:54.053740+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "What is 3/8 + 1/4?\nOptions:\nA. 4/12\nB. 1/2\nC. 5/8\nD. 4/8",
+      "ai_answer": "C",
+      "is_correct": false
+    },
+    {
+      "id": "STouebLhQ7p7mcbQKP2F",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:43:23.608478+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "Given int arr[5] = {10, 20, 30}; what is the value of arr[3]?\nOptions:\nA. 30\nB. 0\nC. 20\nD. Uninitialized",
+      "ai_answer": "B",
+      "is_correct": false
+    },
+    {
+      "id": "TSSVTkQlr0zslL0pLDy0",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:42:33.844987+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "For int data[4] = {5, 6, 7, 8}; which expression retrieves the last element?\nOptions:\nA. data[4]\nB. data[3]\nC. data[0]\nD. data[-1]",
+      "ai_answer": "B",
+      "is_correct": false
+    },
+    {
+      "id": "XV4oEALaLF00cdYZW7Hr",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:42:32.716587+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "Which declaration correctly creates a 2-D integer array with 3 rows and 4 columns?\nOptions:\nA. int a[3,4];\nB. int a[3][4];\nC. int a[3:4];\nD. int a(3)(4);",
+      "ai_answer": "B",
+      "is_correct": false
+    },
+    {
+      "id": "iszchPoHjhbyn8yzROct",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:42:33.556886+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "Which statement correctly assigns 7 to the third element of int nums[5]?\nOptions:\nA. nums(2) = 7;\nB. nums[3] = 7;\nC. nums[2] = 7;\nD. nums{2} = 7;",
+      "ai_answer": "C",
+      "is_correct": false
+    },
+    {
+      "id": "raGTmIa3dhFccCNwhudG",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:43:23.475608+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "Which declaration correctly creates a 2D integer array with 3 rows and 4 columns?\nOptions:\nA. int a[3,4];\nB. int a[3][4];\nC. int a[3:4];\nD. int a(3)(4);",
+      "ai_answer": "B",
+      "is_correct": false
+    },
+    {
+      "id": "tHbvjMVTUrv0qMG8Wqf8",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:42:33.302070+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "Given int arr[5] = {10, 20, 30}; what is the value of arr[3]?\nOptions:\nA. 30\nB. 0\nC. 20\nD. Uninitialized (garbage)",
+      "ai_answer": "B",
+      "is_correct": false
+    },
+    {
+      "id": "tpwOUw2rrgKuJ5t5QYqh",
+      "user_id": "1",
+      "knowledge_point": "AI Practice",
+      "timestamp": "2025-09-04T17:43:23.751251+00:00",
+      "question_id": null,
+      "user_answer": "A",
+      "ai_question": "Given int a[4] = {5, 10, 15, 20}; what does cout << a[1]; print?\nOptions:\nA. 5\nB. 10\nC. 15\nD. 20",
+      "ai_answer": "B",
+      "is_correct": false
+    }
+  ],
+  "knowledge_points": [
+    {
+      "id": "1. 1D and 2D Arrays in C++",
+      "name": "1. 1D and 2D Arrays in C++",
+      "questions": [
+        {
+          "id": "a375abcd-2aec-4d35-8b62-c8f47f4a8060",
+          "explanation": "Option A is a correct declaration but does not include initialization. Option B is incorrect because it does not specify the size of the array. Option C is syntactically incorrect. Option D correctly declares and initializes a 1D array with 5 elements.",
+          "question": "How is a 1D array declared in C++?\r\nOptions:\r\nA. `int array[5]`\r\nB. `int array[] = 5`\r\nC. `int array = 5[]`\r\nD. `int array[5] = {1, 2, 3, 4, 5}`",
+          "answer": "D"
+        },
+        {
+          "id": "759ad2b1-18e6-49c0-a6f1-4678547ec1df",
+          "explanation": "Option A declares a 1D array, not a 2D array. Option B is incorrect because it does not specify the size of the second dimension. Option C is the correct way to declare a 2D array with 3 rows and 4 columns. Option D is incorrect because it does not specify the size of the first dimension.",
+          "question": "What is the correct syntax to declare a 2D array in C++?\r\nOptions:\r\nA. `int array[3]`\r\nB. `int array[3][]`\r\nC. `int array[3][4]`\r\nD. `int array[][]`",
+          "answer": "C"
+        },
+        {
+          "id": "27e68e67-ecb4-4e93-95ec-1a380a66ce25",
+          "explanation": "The declaration `int array[2][3];` allocates memory for a 2D array with 2 rows and 3 columns, resulting in a total of 2 * 3 = 6 elements.",
+          "question": "How many elements does the following 2D array declaration allocate memory for?\r\nOptions:\r\nA. 6\r\nB. 5\r\nC. 9\r\nD. 3",
+          "answer": "A"
+        },
+        {
+          "id": "36e899b9-c56e-4952-a47f-30bcb131ebe7",
+          "explanation": "In C++, array indexing starts from 0. Therefore, to access the element at the first row and second column, we use `array[0][1]`. Options B, C, and D are incorrect as they either access the wrong row or column.",
+          "question": "Which of the following is a valid way to access the element at the first row and second column of a 2D array in C++?\r\nOptions:\r\nA. `array[0][1]`\r\nB. `array[1][2]`\r\nC. `array[2][0]`\r\nD. `array[2][1]`",
+          "answer": "A"
+        },
+        {
+          "id": "fa53410a-25a6-483c-8f10-aa14556756fb",
+          "explanation": "The code snippet initializes a 2D array and then accesses the element at the second row and second column (since indexing starts at 0), which is 4. Therefore, the value of `value` is 4.",
+          "question": "What is the result of the following code snippet?\r\nOptions:\r\nA. 3\r\nB. 4\r\nC. 5\r\nD. 6",
+          "answer": "B"
+        }
+      ],
+      "description": "Understanding one and two-dimensional arrays in C++ programming."
+    },
+    {
+      "id": "10. Storing Values to Array",
+      "name": "10. Storing Values to Array",
+      "questions": [
+        {
+          "id": "2f2e9d37-a910-431f-8565-ef58dff584db",
+          "explanation": "In C++, array indexing starts at 0, so the first element is accessed with index 0. Therefore, `intArray[0] = 10;` correctly assigns the value 10 to the first element.",
+          "question": "How do you assign a value to the first element of an array named `intArray` with 5 elements in C++?\r\nOptions:\r\nA. `intArray[0] = 10;`\r\nB. `intArray[1] = 10;`\r\nC. `intArray[5] = 10;`\r\nD. `intArray[-1] = 10;`",
+          "answer": "A"
+        },
+        {
+          "id": "ad605d2f-9543-4b37-9302-5f94baf54980",
+          "explanation": "Option A uses a for loop to iterate through each element of the array and set it to zero, which is the correct way to assign all elements to zero. Option B would set the entire array pointer to zero, which is not the intended operation. Option C is a valid alternative for setting all bytes of an array to zero, but it is not the standard C++ way for int arrays. Option D only sets the first element to zero.",
+          "question": "What is the correct way to assign all elements of an array to zero in C++?\r\nOptions:\r\nA. `for (int i = 0; i < arraySize; i++) { array[i] = 0; }`\r\nB. `array = 0;`\r\nC. `memset(array, 0, sizeof(array));`\r\nD. `array[0] = 0;`",
+          "answer": "A"
+        },
+        {
+          "id": "c69a51e4-784a-4533-9b72-f64d006f7599",
+          "explanation": "Arrays in C++ are zero-indexed, so the fifth element is accessed with index 4. Therefore, `prices[4] = 3.14;` is the correct way to assign the value 3.14 to the fifth element.",
+          "question": "Given an array `double prices[10]`, which statement correctly assigns the value 3.14 to the fifth element of the array?\r\nOptions:\r\nA. `prices[4] = 3.14;`\r\nB. `prices[5] = 3.14;`\r\nC. `prices[10] = 3.14;`\r\nD. `prices(5) = 3.14;`",
+          "answer": "A"
+        },
+        {
+          "id": "ae977ce5-1d94-4b6a-9d6c-243ed8ca53a4",
+          "explanation": "Since arrays are zero-indexed, the third element is accessed with index 2. However, the question asks for the third element, which is actually accessed with index 2. The correct answer should be `myArray[2] = 5;`, but based on the options provided, the closest correct option is B, which is a typo and should be `myArray[2] = 5;`. The correct answer is not listed among the options.",
+          "question": "Which of the following is the correct syntax for assigning the value 5 to the third element of an array named `myArray`?\r\nOptions:\r\nA. `myArray[2] = 5;`\r\nB. `myArray[3] = 5;`\r\nC. `myArray[0] = 5;`\r\nD. `myArray(3) = 5;`",
+          "answer": "B"
+        },
+        {
+          "id": "c7cf64a3-e5fb-4e43-911d-75e55dffc7a7",
+          "explanation": "Option C uses a for loop to iterate through each element of the array and assign the value 7, which is the correct way to assign the same value to all elements. Option A only sets the first element to 7, option B would set the entire array pointer to 7, and option D is out of bounds for the array.",
+          "question": "How can you assign the value 7 to all elements of an array named `intArray` with 10 elements in C++?\r\nOptions:\r\nA. `intArray[0] = 7;`\r\nB. `intArray = 7;`\r\nC. `for (int i = 0; i < 10; i++) { intArray[i] = 7; }`\r\nD. `intArray[10] = 7;`",
+          "answer": "C"
+        }
+      ],
+      "description": "Assigning values to array elements."
+    },
+    {
+      "id": "11. Accessing Array Elements",
+      "name": "11. Accessing Array Elements",
+      "questions": [
+        {
+          "id": "b1d5037d-c859-4d04-953f-dc0b075f11fe",
+          "question": "How do you access the first element of an array in Java?\r\nOptions:\r\nA. `array[0]`\r\nB. `array[1]`\r\nC. `array[-1]`\r\nD. `array[2]`",
+          "answer": "A"
+        },
+        {
+          "id": "16c3ba74-dc17-4172-b031-0671906ed201",
+          "question": "What is the correct way to access the last element of an array in C# without knowing its length?\r\nOptions:\r\nA. `array[array.Length - 1]`\r\nB. `array[array.Count - 1]`\r\nC. `array[array.Size - 1]`\r\nD. `array[array.Max - 1]`",
+          "answer": "A"
+        },
+        {
+          "id": "3435b25f-9f6f-4724-b222-ae9ad4a76379",
+          "question": "In JavaScript, how would you retrieve the value at index 5 of an array named `myArray`?\r\nOptions:\r\nA. `myArray[5]`\r\nB. `myArray(5)`\r\nC. `myArray{5}`\r\nD. `myArray.at(5)`",
+          "answer": "A"
+        },
+        {
+          "id": "78dbcdb0-9d29-47f3-9074-c542d767e134",
+          "question": "If you have an array `int[] numbers = {10, 20, 30, 40, 50};` in Java, which expression will give you the value 30?\r\nOptions:\r\nA. `numbers[2]`\r\nB. `numbers[3]`\r\nC. `numbers[4]`\r\nD. `numbers[5]`",
+          "answer": "A"
+        },
+        {
+          "id": "be939a6d-39ce-4687-afcb-3621ef3a35a4",
+          "question": "How do you access the third element of an array in PHP?\r\nOptions:\r\nA. `array[2]`\r\nB. `array[3]`\r\nC. `array[1]`\r\nD. `array[0]`",
+          "answer": "B"
+        },
+        {
+          "id": "21ae551d-1a4c-4d24-9c43-b18dabb5fab6",
+          "question": "In an array of strings, what is the correct way to access the fourth element in Ruby?\r\nOptions:\r\nA. `array[3]`\r\nB. `array[4]`\r\nC. `array[2]`\r\nD. `array[1]`",
+          "answer": "A"
+        }
+      ],
+      "description": "Retrieving values from an array."
+    },
+    {
+      "id": "12. Array Declaration and Access Summary",
+      "name": "12. Array Declaration and Access Summary",
+      "questions": [
+        {
+          "id": "965eab0c-b62f-4447-b870-59b23df7768e",
+          "question": "What is the correct syntax for declaring an array of integers with 10 elements?\r\nOptions:\r\nA. `int myArray[] = new int[10];`\r\nB. `int myArray[10];`\r\nC. `int myArray = new int[10];`\r\nD. `int myArray(10);`",
+          "answer": "B"
+        },
+        {
+          "id": "6cbb8565-ddcf-44f1-86dd-b44149ea4b4e",
+          "question": "How do you access the fifth element of an array named `intArray`?\r\nOptions:\r\nA. `intArray[5]`\r\nB. `intArray(5)`\r\nC. `intArray[4]`\r\nD. `intArray + 5`",
+          "answer": "A"
+        },
+        {
+          "id": "932fd8c4-5498-4047-b1ab-1809608dfd32",
+          "question": "If an array `intArray` is declared as `int intArray[5]`, which of the following is the correct way to access the last element?\r\nOptions:\r\nA. `intArray[5]`\r\nB. `intArray[4]`\r\nC. `intArray[-1]`\r\nD. `intArray[0]`",
+          "answer": "B"
+        }
+      ],
+      "description": "A summary of how to declare and access arrays."
+    },
+    {
+      "id": "13. Trace Program with Arrays",
+      "name": "13. Trace Program with Arrays",
+      "questions": [],
+      "description": "Step-by-step execution of a program using arrays."
+    },
+    {
+      "id": "14. Loop Execution in Arrays",
+      "name": "14. Loop Execution in Arrays",
+      "questions": [],
+      "description": "Iterating through an array with a loop."
+    },
+    {
+      "id": "15. Array Element Calculation",
+      "name": "15. Array Element Calculation",
+      "questions": [],
+      "description": "Calculating values for array elements within a loop."
+    },
+    {
+      "id": "16. Array Indexing",
+      "name": "16. Array Indexing",
+      "questions": [],
+      "description": "Accessing array elements using indices."
+    },
+    {
+      "id": "17. Array Out of Bounds",
+      "name": "17. Array Out of Bounds",
+      "questions": [],
+      "description": "Understanding the limits of array indices to prevent errors."
+    },
+    {
+      "id": "18. Array Element Summation",
+      "name": "18. Array Element Summation",
+      "questions": [],
+      "description": "Summing the values of all elements in an array."
+    },
+    {
+      "id": "19. Array Element Assignment",
+      "name": "19. Array Element Assignment",
+      "questions": [],
+      "description": "Assigning values to specific array elements."
+    },
+    {
+      "id": "2. Array Definition",
+      "name": "2. Array Definition",
+      "questions": [],
+      "description": "The concept of defining arrays in C++."
+    },
+    {
+      "id": "20. Array Element Computation",
+      "name": "20. Array Element Computation",
+      "questions": [],
+      "description": "Computing new values for array elements based on previous ones."
+    },
+    {
+      "id": "3. Array Initialization",
+      "name": "3. Array Initialization",
+      "questions": [],
+      "description": "How to initialize arrays in C++."
+    },
+    {
+      "id": "4. Updating Array Elements",
+      "name": "4. Updating Array Elements",
+      "questions": [],
+      "description": "Modifying the values within an array."
+    },
+    {
+      "id": "5. Printing Array Content",
+      "name": "5. Printing Array Content",
+      "questions": [],
+      "description": "Displaying the contents of an array."
+    },
+    {
+      "id": "6. Array Syntax Summary",
+      "name": "6. Array Syntax Summary",
+      "questions": [],
+      "description": "Overview of the syntax used with arrays, including punctuators."
+    },
+    {
+      "id": "7. Array Example",
+      "name": "7. Array Example",
+      "questions": [],
+      "description": "Storing and computing student marks using an array."
+    },
+    {
+      "id": "8. What is an Array",
+      "name": "8. What is an Array",
+      "questions": [],
+      "description": "Definition of an array as a sequence of data items of the same type."
+    },
+    {
+      "id": "9. Array Declaration",
+      "name": "9. Array Declaration",
+      "questions": [],
+      "description": "Declaring an array with a specific number of elements."
+    },
+    {
+      "id": "aa",
+      "name": "aa",
+      "questions": [
+        {
+          "id": "AeQxIdnQYiAtosvDVxu1",
+          "question": "11",
+          "answer": "11"
+        }
+      ],
+      "description": ""
+    }
+  ],
+  "users": [
+    {
+      "id": "1",
+      "wrong_answers": "",
+      "username": "1",
+      "is_admin": false,
+      "password": "scrypt:32768:8:1$dObOye7i5xf25jhi$de56c12776b0f60038add0d78d9b72538268ebee8827db5fbfb37777cb071c3a6ae8d6cb7f72839c75f73ee70109b17a6520239a63978cec50549b6e3e3a0478",
+      "sub_collections": {
+        "study_report": [
+          {
+            "id": "conclusion",
+            "evaluation": "The student has difficulty with addition"
+          }
+        ],
+        "wrong_kp": [],
+        "wrong_questions": [
+          {
+            "id": "1. 1D and 2D Arrays in C++"
+          },
+          {
+            "id": "10. Storing Values to Array"
+          },
+          {
+            "id": "11. Accessing Array Elements"
+          }
+        ]
+      }
+    },
+    {
+      "id": "2",
+      "username": "2",
+      "is_admin": false,
+      "password": "scrypt:32768:8:1$tqkk9tvu5vLcD8VU$0fdcb9b300c9ecb5d18265b3bf9eb7ddc645e28e3e1d39357e5ae07785dd24181ccf5d0ec1f25f272f795685939422e31e8db45b1caa9240602ae14fb511e71a",
+      "sub_collections": {
+        "wrong_questions": [
+          {
+            "id": "10. Storing Values to Array"
+          }
+        ]
+      }
+    },
+    {
+      "id": "admin",
+      "wrong_answers": "",
+      "username": "admin",
+      "is_admin": false,
+      "password": "scrypt:32768:8:1$Y0v7pUKPCrxS0G53$eef2812feeba23deb053dd00cd9b954531a588c86f527d759aa6168a4885e362553887015a179ebac32b9bbdcc16b69d4e72e3eb9179c27cdea33c9d33c98d33",
+      "sub_collections": {
+        "study_report": [
+          {
+            "id": "conclusion",
+            "evaluation": "The student has difficulty with subtraction"
+          }
+        ]
+      }
+    }
+  ]
+}

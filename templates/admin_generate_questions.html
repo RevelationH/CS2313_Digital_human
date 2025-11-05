@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Generate Questions for “{{ kp_name }}” <small style="font-size:80%;color:#888;">(list: {{ list_id }})</small></h2>
+
+<form method="post">
+    <ul style="padding-left:18px;">
+    {% for q in questions %}
+        <li style="margin-bottom:20px;">
+            <b>{{ q.question }}</b><br>
+
+            {# ---------- 可选：展示选项 ---------- #}
+            {% if q.options %}
+                <ul style="margin-top:6px;">
+                    {% for opt in q.options %}
+                        <li>{{ opt }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {# ---------- 显示答案 ---------- #}
+            <div style="margin-top:6px;"><b>Answer:</b> {{ q.answer }}</div>
+
+            {# ---------- 可编辑区域 ---------- #}
+            <textarea name="edit_question_{{ loop.index }}"     style="width:100%;margin-top:8px;">{{ q.question }}</textarea><br>
+            <textarea name="answer_{{ loop.index }}"            style="width:100%;margin-top:4px;">{{ q.answer }}</textarea><br>
+            <textarea name="explanation_{{ loop.index }}"       style="width:100%;margin-top:4px;">{{ q.explanation }}</textarea><br>
+
+            {# ---------- 勾选保存 ---------- #}
+            <label>
+                <input type="checkbox" name="select_question_{{ loop.index }}" value="true">
+                Select this question
+            </label>
+
+            {# ---------- 隐藏字段：题目 ID ---------- #}
+            <input type="hidden" name="question_id_{{ loop.index }}" value="{{ q.id }}">
+        </li>
+    {% endfor %}
+    </ul>
+
+    {# ---------- 隐藏字段：总题目数供后端循环 ---------- #}
+    <input type="hidden" name="total_count" value="{{ questions|length }}">
+
+    <button type="submit">Save Selected Questions</button>
+</form>
+
+<p style="margin-top:16px;">
+    <a href="{{ url_for('admin_questions',
+                        list_id=list_id,
+                        kp_name=kp_name) }}">
+        Back to Question Management
+    </a>
+</p>
+{% endblock %}
