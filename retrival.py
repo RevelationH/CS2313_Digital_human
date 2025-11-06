@@ -14,6 +14,7 @@ from quiz_app import QuizApp
 
 from kimi_utils import kimi_personal_analysis, kimi_chat, build_kp_prompt, build_question_prompt, extract_questions_from_ai, parse_kps_from_ai
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
+from langchain_deepseek import ChatDeepSeek
 
 DEEPSEEK_CHAT_MODEL = os.getenv("DEEPSEEK_CHAT_MODEL", "deepseek-chat")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -70,6 +71,8 @@ class re_and_exc():
         self.analysis = learning_report(user)
 
         self.course_rag = rag(DEEPSEEK_API_KEY)
+
+        self.model = "deepseek-chat"
 
         #self.intent = intent(User)
 
@@ -145,14 +148,33 @@ class re_and_exc():
         messages.append({"role": "user", "content": user_input})
         return messages
 
-    def chat_with_model(self, user_input, history):
-        messages = self.build_messages(user_input, history)
-        resp = self.client.chat.completions.create(
-            model=DEEPSEEK_CHAT_MODEL,
-            messages=messages,
-            temperature=0.3,
-        )
-        return resp.choices[0].message.content
+    def chat_with_model(self, system_prompt):
+        try:
+            # 确保 messages 是列表格式，而不是字符串
+            if isinstance(system_prompt, str):
+                # 如果传入的是字符串，转换为正确的消息格式
+                messages = [
+                    {"role": "system", "content": system_prompt}
+                ]
+            elif isinstance(system_prompt, list):
+                # 如果已经是列表格式，直接使用
+                messages = system_prompt
+            else:
+                # 其他情况转换为字符串
+                messages = [
+                    {"role": "system", "content": str(system_prompt)}
+                ]
+        
+            resp = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,  # 这里应该是列表，不是字符串
+                stream=False,
+            )
+            return resp.choices[0].message.content
+
+        except Exception as e:
+            print(f"Error in chat_with_model: {e}")
+            return f"Sorry, I encountered an error: {str(e)}"
 
     def generate_learning_report(self, user_input, history):
         #docs = self.fdb.read_wq(user="1")
@@ -175,38 +197,26 @@ class re_and_exc():
     def user_answer(self, user_input, intent):
         #intent = self.intent.route_intent(user_input)
         print("intent:", intent)
-
-        """
-        try:
-            if intent == "LEARNING_REPORT":
-                answer = self.generate_learning_report(user_input, self.history)
-            elif intent == "LESSON_POINTS":
-                answer = self.list_lesson_points(user_input, self.history)
-
-            elif intent == "NORMAL_CHAT":
-                answer = self.chat_with_model(user_input, self.history)
-                #print("\nAssistant:", textwrap.fill(answer, width=80))
-                self.history.append({"role": "user", "content": user_input})
-                self.history.append({"role": "assistant", "content": answer})
-            
-            else:
-                answer = "I may not understand what you said, could you please say it again?"
-
-        except Exception as e:
-            answer = "Sorry, there seems to be some problem with my system, please contact the developer!"
-        """
         if intent == "LEARNING_REPORT":
             answer = self.generate_learning_report(user_input, self.history)
         elif intent == "NORMAL_CHAT":
-            """
-            answer = self.chat_with_model(user_input, self.history)
-            #print("\nAssistant:", textwrap.fill(answer, width=80))
-            self.history.append({"role": "user", "content": user_input})
-            self.history.append({"role": "assistant", "content": answer})
-            """
             answer = self.course_rag.rag_answer(question=user_input)
+        elif intent == "QUIZ":
+            system_prompt = (
+                "You are a virtual digital human who speaks English. Now, a user wants to take a test, and you need to tell them you are ready and ask them to follow the instructions on the webpage."
+                "This response should be very brief, simply prompting the user to view the webpage content."
+            )
+            
+            answer = self.chat_with_model(system_prompt)
         else:
-            answer = "I may not understand what you said, could you please say it again?"
+            system_prompt = (
+                "You are a virtual, English-speaking digital human. You don't understand what the user is saying now."
+                "You want the user to say it again."
+                "This answer should be very brief."
+            )
+            # 构建消息列表
+            messages = [{"role": "system", "content": system_prompt}]
+            answer = self.chat_with_model(messages)
 
         return answer
 
@@ -327,12 +337,12 @@ class intent():
             },
             "QUIZ": {
                 "must_any": [
-                    "quiz"
+                    "quiz", "exercise", "question", "test"
                 ],
-                "verbs": ["output", "generate", "write", "create", "export", "summarize", "compile"],  
+                "verbs": ["take", "do"],  
             },
         }
-
+        
         self.USE_LLM_FALLBACK = True
         self.LLM_FALLBACK_THRESHOLD = 55
     
@@ -407,10 +417,15 @@ class avatar_text():
             base_url=DEEPSEEK_BASE_URL
         )
 
-        self.SYSTEM_PROMPT = (
-            "You are a helpful study assistant.\n"
-            "If uncertain, say so and give possible directions."
-        )
+        self.llm = self.get_llm(model="deepseek-chat")
+
+    def get_llm(self, model: str = "deepseek-chat", temperature: float = 0.2) -> ChatDeepSeek:
+        # 需要 DEEPSEEK_API_KEY
+        # deepseek-chat 为 V3.1 的非思考模式, 响应更快
+        # deepseek-reasoner 为思考模式, 更长上下文与推理能力, 但不支持工具调用
+        # 参考官方文档与 LangChain 集成说明
+        return ChatDeepSeek(model=model, temperature=temperature)
+
 
     def chat_with_model(self, user_input, history):
         messages = self.build_messages(user_input, history)
@@ -423,9 +438,32 @@ class avatar_text():
     
     def user_answer(self, user_input, intent):
         #intent = self.intent.route_intent(user_input)
-        answer = "OK, I am generating a learning report"
+        if intent == "NORMAL_CHAT" or "QUIZ":
+            system_prompt = (
+                "You are a virtual, English-speaking digital human. Now, a user has entered some text, and you need to translate that text into everyday, conversational English, but try not to change the content provided by the user."
 
-        return answer
+                "This means you need to remove or transform redundant characters in the text."
+
+                "For example, changing the % to 'percent,' etc., so that the digital human can express itself better when outputting speech."
+            )
+
+            user_prompt = (
+                f"Question:\n{user_input}\n\n"
+            )
+
+            messages = [("system", system_prompt), ("human", user_prompt)]
+
+            resp = self.llm.invoke(messages)
+        
+        if intent == "LEARNING_REPORT":
+            system_prompt = (
+                "You are a virtual, English-speaking digital human. Now, you need to tell the user that you have generated a learning report for him and ask him to browse it."
+                "The reply should be very brief, just prompting the user to view the study report."
+            )
+
+            resp = self.llm.invoke(system_prompt)
+
+        return resp.content
 
 
     

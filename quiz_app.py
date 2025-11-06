@@ -10,6 +10,9 @@ from flask import (
 from markupsafe import Markup, escape
 from db import fire_db
 from user import User
+import socket
+import netifaces
+import os
 
 
 class QuizApp:
@@ -22,6 +25,7 @@ class QuizApp:
         self.port = port
 
         self.local_ip = self._get_local_ip()
+        print(f"Device A IP address: {self.local_ip}")
 
         # 初始化 Firebase
         self.db = fire_db()
@@ -36,26 +40,144 @@ class QuizApp:
 
         self._INVALID_CHARS = re.compile(r'[\/\\#?%]')
 
+        self._add_firewall_rule()
+        
+        print(f"QuizApp initialized - Accessible at: http://{self.local_ip}:{self.port}")
+
     def _get_local_ip(self):
-        """获取本机IP地址"""
+        """动态获取设备A的局域网IP地址"""
         try:
-            # 创建一个临时socket来获取本机IP
+            # 方法1: 通过连接外部服务器获取本机IP
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
             s.close()
             return ip
         except:
-            return "127.0.0.1"  # 如果获取失败，使用localhost
-            print("failed to get ip, use local host!")
+            try:
+                # 方法2: 使用netifaces获取所有网络接口的IP
+                import netifaces
+                interfaces = netifaces.interfaces()
+                for interface in interfaces:
+                    addrs = netifaces.ifaddresses(interface)
+                    if netifaces.AF_INET in addrs:
+                        for addr in addrs[netifaces.AF_INET]:
+                            ip = addr['addr']
+                            # 排除回环地址和链路本地地址
+                            if ip != '127.0.0.1' and not ip.startswith('169.254'):
+                                return ip
+            except:
+                # 方法3: 使用socket.gethostbyname
+                try:
+                    hostname = socket.gethostname()
+                    ip = socket.gethostbyname(hostname)
+                    if ip != '127.0.0.1':
+                        return ip
+                except:
+                    pass
+        
+        # 如果所有方法都失败，返回回环地址
+        print("Fail to get ip!!!!!!!!!")
+        return "127.0.0.1"
+
+    def _add_firewall_rule(self):
+        """添加防火墙规则允许外部访问"""
+        if os.name == 'nt':  # Windows
+            try:
+                import subprocess
+                rule_name = f"Open TCP Port {self.port} for QuizApp"
+                # 检查规则是否已存在
+                result = subprocess.run([
+                    'netsh', 'advfirewall', 'firewall', 'show', 'rule',
+                    f'name={rule_name}'
+                ], capture_output=True, text=True)
+                
+                # 如果规则不存在，则添加
+                if "No rules match" in result.stdout:
+                    subprocess.run([
+                        'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                        f'name={rule_name}',
+                        'dir=in',
+                        'action=allow',
+                        'protocol=TCP',
+                        f'localport={self.port}'
+                    ], capture_output=True, text=True)
+                    print(f"Firewall rule added for port {self.port}")
+                else:
+                    print(f"Firewall rule for port {self.port} already exists")
+            except Exception as e:
+                print(f"Warning: Could not add firewall rule: {e}")
 
     def get_remote_url(self, path="/dashboard"):
-        """生成远程访问URL"""
-        if self.host == "0.0.0.0":
-            # 使用本机IP地址而不是0.0.0.0
-            return f"http://{self.local_ip}:{self.port}{path}"
-        else:
-            return f"http://{self.host}:{self.port}{path}"
+        """生成设备B可以访问的URL"""
+        # 使用动态获取的设备A的IP地址
+        url = f"http://{self.local_ip}:{self.port}{path}"
+        print(f"QuizApp URL for device B: {url}")
+        return url
+
+    def start_in_background(self):
+        """在后台启动服务器并返回远程URL"""
+        try:
+            # 每次启动时重新获取IP地址，以防IP发生变化
+            current_ip = self._get_local_ip()
+            if current_ip != self.local_ip:
+                print(f"IP address changed from {self.local_ip} to {current_ip}")
+                self.local_ip = current_ip
+            
+            if self.server_thread and self.server_thread.is_alive():
+                print("QuizApp server is already running")
+                return self.get_remote_url()
+            
+            # 启动服务器线程
+            print("Starting QuizApp server in background thread...")
+            self.server_thread = threading.Thread(target=self._start_server_async, daemon=True)
+            self.server_thread.start()
+            
+            # 在新线程中等待服务器启动
+            threading.Thread(target=self._wait_for_server, daemon=True).start()
+            
+            # 返回设备B可以访问的URL
+            remote_url = self.get_remote_url()
+            print(f"QuizApp will be accessible at: {remote_url}")
+            return remote_url
+            
+        except Exception as e:
+            print(f"Error starting QuizApp in background: {e}")
+            return self.get_remote_url()
+
+    def _start_server_async(self):
+        """异步启动服务器"""
+        try:
+            print(f"Starting Flask server on {self.host}:{self.port}")
+            self.app.run(
+                host=self.host, 
+                port=self.port, 
+                debug=False, 
+                use_reloader=False, 
+                threaded=True
+            )
+        except Exception as e:
+            print(f"Error in server thread: {e}")
+
+    def _wait_for_server(self):
+        """等待服务器启动"""
+        import time
+        max_wait = 15
+        # 使用localhost来测试服务器是否启动
+        test_url = f"http://127.0.0.1:{self.port}/"
+        
+        for i in range(max_wait):
+            time.sleep(1)
+            try:
+                import urllib.request
+                urllib.request.urlopen(test_url, timeout=1)
+                # 服务器已启动，打印可访问的URL
+                remote_url = self.get_remote_url()
+                print(f"QuizApp server is ready and accessible at: {remote_url}")
+                break
+            except Exception as e:
+                if i == max_wait - 1:
+                    print(f"Warning: QuizApp server might not be fully ready: {e}")
     
     def _setup_filters(self):
         """设置模板过滤器"""
@@ -128,74 +250,6 @@ class QuizApp:
     def run(self, **kwargs):
         self.app.run(**kwargs)
     """
-    #modification
-    def start_server(self):
-        """启动Flask服务器（在单独线程中）"""
-        self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
-
-    def open_dashboard(self):
-        """打开dashboard页面"""
-        url = f"http://{self.host}:{self.port}/dashboard"
-        print(f"Opening dashboard: {url}")
-        webbrowser.open_new_tab(url)
-        return url
-
-    def start_in_background(self):
-        """在后台启动服务器并返回远程URL"""
-        try:
-            if self.server_thread and self.server_thread.is_alive():
-                print("QuizApp server is already running")
-                # 返回远程访问URL
-                return self.get_remote_url()
-            
-            # 启动服务器线程
-            print("Starting QuizApp server in background thread...")
-            self.server_thread = threading.Thread(target=self._start_server_async, daemon=True)
-            self.server_thread.start()
-            
-            # 在新线程中等待服务器启动
-            threading.Thread(target=self._wait_for_server, daemon=True).start()
-            
-            # 返回远程访问URL
-            remote_url = self.get_remote_url()
-            print(f"QuizApp will be accessible at: {remote_url}")
-            return remote_url
-            
-        except Exception as e:
-            print(f"Error starting QuizApp in background: {e}")
-            return self.get_remote_url()
-
-    def _start_server_async(self):
-        """异步启动服务器"""
-        try:
-            print(f"Starting Flask server on {self.host}:{self.port}")
-            self.app.run(
-                host=self.host, 
-                port=self.port, 
-                debug=False, 
-                use_reloader=False, 
-                threaded=True
-            )
-        except Exception as e:
-            print(f"Error in server thread: {e}")
-
-    def _wait_for_server(self):
-        """等待服务器启动"""
-        import time
-        max_wait = 15
-        url = f"http://127.0.0.1:{self.port}/"
-        
-        for i in range(max_wait):
-            time.sleep(1)
-            try:
-                import urllib.request
-                urllib.request.urlopen(url, timeout=1)
-                print(f"QuizApp server is ready and accessible at: {self.get_remote_url()}")
-                break
-            except Exception as e:
-                if i == max_wait - 1:
-                    print(f"Warning: QuizApp server might not be fully ready: {e}")
-    #modification
 
     def dashboard(self):
         if not session.get('user_id'):

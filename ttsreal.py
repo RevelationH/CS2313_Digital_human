@@ -78,7 +78,7 @@ class BaseTTS:
 ###########################################################################################
 class EdgeTTS(BaseTTS):
     def txt_to_audio(self,msg):
-        voicename = "zh-CN-YunjianNeural"
+        voicename = "en-GB-RyanNeural"
         text = msg
         t = time.time()
         asyncio.new_event_loop().run_until_complete(self.__main(voicename,text))

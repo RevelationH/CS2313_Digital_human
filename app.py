@@ -277,20 +277,22 @@ async def human(request):
     if params['type']=='echo':
         print("answer generating!")
         answer_intent = input_intent.route_intent(params['text'])
+
+        """
         if answer_intent == "Learning report":
             avatar_answer = avatar_input.user_answer(params['text'], answer_intent)
             nerfreals[sessionid].put_msg_txt(avatar_answer)
-        elif answer_intent == "QUIZ":
+        """
+        if answer_intent == "QUIZ":
             # 启动 QuizApp 并获取远程访问URL
-            avatar_answer = "Starting the Quiz system, please wait..."
-            nerfreals[sessionid].put_msg_txt(avatar_answer)
-            
             # 在后台启动 QuizApp 服务器
             quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
             print(f"Quiz system ready at: {quiz_url}")
 
             # 返回给前端的响应 - 包含Quiz URL
-            rae_answer = f"Quiz system started! The quiz interface will open in a new tab."
+            rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+            avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
+            nerfreals[sessionid].put_msg_txt(avatar_answer)
             return web.Response(
                 content_type="application/json",
                 text=json.dumps({
@@ -304,9 +306,9 @@ async def human(request):
             )
 
         rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
-        puri_answer = process_input_text(rae_answer)
-        nerfreals[sessionid].put_msg_txt(puri_answer)
-        print("rae_answer:", rae_answer)
+        avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
+        nerfreals[sessionid].put_msg_txt(avatar_answer)
+        print("avatar_answer:", avatar_answer)
         return web.Response(
             content_type="application/json",
             text=json.dumps(
@@ -502,7 +504,7 @@ async def run(push_url,sessionid):
 
 def run_quiz_app():
     """在单独线程中运行 QuizApp"""
-    quiz_app.run(port=5001, debug=False, use_reloader=False)
+    quiz_app.run(port=50012, debug=False, use_reloader=False)
 
 
 if __name__ == '__main__':
@@ -641,8 +643,8 @@ if __name__ == '__main__':
     parser.add_argument('--transport', type=str, default='rtcpush') #rtmp webrtc rtcpush
     parser.add_argument('--push_url', type=str, default='http://localhost:1985/rtc/v1/whip/?app=live&stream=livestream') #rtmp://localhost/live/livestream
 
-    parser.add_argument('--max_session', type=int, default=1)  #multi session count
-    parser.add_argument('--listenport', type=int, default=8010)
+    parser.add_argument('--max_session', type=int, default=20)  #multi session count
+    parser.add_argument('--listenport', type=int, default=50051)
 
     opt = parser.parse_args()
     #app.config.from_object(opt)
@@ -656,7 +658,7 @@ if __name__ == '__main__':
     rae = re_and_exc(user)
     input_intent = intent(user)
     avatar_input = avatar_text(user)
-    quiz_APP = QuizApp(user, host='0.0.0.0', port=5001)
+    quiz_APP = QuizApp(user, host='0.0.0.0', port=50012)
     print(f"QuizApp initialized:")
     print(f"  - Server will listen on: 0.0.0.0:{quiz_APP.port}")
     print(f"  - Accessible at: http://{quiz_APP.local_ip}:{quiz_APP.port}")
