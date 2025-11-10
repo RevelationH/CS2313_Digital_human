@@ -47,7 +47,16 @@ class QuizApp:
     def _get_local_ip(self):
         """动态获取设备A的局域网IP地址"""
         try:
-            # 方法1: 通过连接外部服务器获取本机IP
+            # 方法1: 尝试获取公网IP（适用于云服务器）
+            import requests
+            public_ip = requests.get('https://api.ipify.org', timeout=3).text.strip()
+            if public_ip:
+                return public_ip
+        except:
+            pass
+        
+        try:
+            # 方法2: 通过连接外部服务器获取本机IP
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]

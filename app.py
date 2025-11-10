@@ -516,7 +516,10 @@ def run_quiz_app():
 
 
 if __name__ == '__main__':
-    mp.set_start_method('spawn')
+    try:
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass  # 启动方法已经设置过了
     parser = argparse.ArgumentParser()
     parser.add_argument('--pose', type=str, default="data/anime_a_data/data_kf.json", help="transforms.json, pose source")
     parser.add_argument('--au', type=str, default="data/anime_a_data/au.csv", help="eye blink area")
@@ -677,9 +680,10 @@ if __name__ == '__main__':
             opt.customopt = json.load(file)
 
     if opt.model == 'ernerf':       
-        from nerfreal import NeRFReal,load_model,load_avatar
-        model = load_model(opt)
-        avatar = load_avatar(opt) 
+        # from nerfreal import NeRFReal,load_model,load_avatar
+        # model = load_model(opt)
+        # avatar = load_avatar(opt) 
+        pass
         
         # we still need test_loader to provide audio features for testing.
         # for k in range(opt.max_session):

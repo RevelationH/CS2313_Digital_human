@@ -17,3 +17,9 @@ pretrained
 workspace/log_ngp.txt
 .idea"models/wav2lip.pth" 
 "wav2lip/face_detection/detection/sfd/s3fd.pth" 
+
+
+quizsite-fb97c-firebase-adminsdk-fbsvc-76a794e54f.json
+models/
+data/
+wav2lip/
