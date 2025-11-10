@@ -74,7 +74,7 @@ from quiz_app import QuizApp
 
 app = Flask(__name__)
 #sockets = Sockets(app)
-nerfreals = {}
+#nerfreals = {}
 opt = None
 model = None
 avatar = None      
@@ -175,12 +175,12 @@ def llm_response(message,nerfreal):
                     lastpos = i+1
                     if len(result)>10:
                         print(result)
-                        nerfreal.put_msg_txt(result)
+                        #nerfreal.put_msg_txt(result)
                         result=""
             result = result+msg[lastpos:]
     end = time.perf_counter()
     print(f"llm Time to last chunk: {end-start}s")
-    nerfreal.put_msg_txt(result)            
+    #nerfreal.put_msg_txt(result)            
 
 #####webrtc###############################
 pcs = set()
@@ -212,14 +212,17 @@ async def offer(request):
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
+    """
     if len(nerfreals) >= opt.max_session:
         print('reach max session')
         return -1
+    """
+
     sessionid = randN(6) #len(nerfreals)
     print('sessionid=',sessionid)
-    nerfreals[sessionid] = None
-    nerfreal = await asyncio.get_event_loop().run_in_executor(None, build_nerfreal,sessionid)
-    nerfreals[sessionid] = nerfreal
+    #nerfreals[sessionid] = None
+    #nerfreal = await asyncio.get_event_loop().run_in_executor(None, build_nerfreal,sessionid)
+    #nerfreals[sessionid] = nerfreal
     
     pc = RTCPeerConnection()
     pcs.add(pc)
@@ -230,21 +233,23 @@ async def offer(request):
         if pc.connectionState == "failed":
             await pc.close()
             pcs.discard(pc)
-            del nerfreals[sessionid]
+            #del nerfreals[sessionid]
         if pc.connectionState == "closed":
             pcs.discard(pc)
-            del nerfreals[sessionid]
+            #del nerfreals[sessionid]
 
-    player = HumanPlayer(nerfreals[sessionid])
-    audio_sender = pc.addTrack(player.audio)
-    video_sender = pc.addTrack(player.video)
+    """
+    #player = HumanPlayer(nerfreals[sessionid]) #player modification, annotate all player variable
+    #audio_sender = pc.addTrack(player.audio)
+    #video_sender = pc.addTrack(player.video)
     capabilities = RTCRtpSender.getCapabilities("video")
     preferences = list(filter(lambda x: x.name == "H264", capabilities.codecs))
     preferences += list(filter(lambda x: x.name == "VP8", capabilities.codecs))
     preferences += list(filter(lambda x: x.name == "rtx", capabilities.codecs))
     transceiver = pc.getTransceivers()[1]
     transceiver.setCodecPreferences(preferences)
-
+    """
+    
     await pc.setRemoteDescription(offer)
 
     answer = await pc.createAnswer()
@@ -272,8 +277,8 @@ async def human(request):
     #model = moonshot_agent()
     sessionid = params.get('sessionid',0)
     if params.get('interrupt'):
-        nerfreals[sessionid].flush_talk()
-
+        #nerfreals[sessionid].flush_talk()
+        pass
     if params['type']=='echo':
         print("answer generating!")
         answer_intent = input_intent.route_intent(params['text'])
@@ -292,7 +297,7 @@ async def human(request):
             # 返回给前端的响应 - 包含Quiz URL
             rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
             avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
-            nerfreals[sessionid].put_msg_txt(avatar_answer)
+            #nerfreals[sessionid].put_msg_txt(avatar_answer)
             return web.Response(
                 content_type="application/json",
                 text=json.dumps({
@@ -307,7 +312,7 @@ async def human(request):
 
         rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
         avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
-        nerfreals[sessionid].put_msg_txt(avatar_answer)
+        #nerfreals[sessionid].put_msg_txt(avatar_answer)
         print("avatar_answer:", avatar_answer)
         return web.Response(
             content_type="application/json",
@@ -324,7 +329,7 @@ async def humanaudio(request):
         fileobj = form["file"]
         filename=fileobj.filename
         filebytes=fileobj.file.read()
-        nerfreals[sessionid].put_audio_file(filebytes)
+        #nerfreals[sessionid].put_audio_file(filebytes)
 
         return web.Response(
             content_type="application/json",
@@ -380,11 +385,12 @@ async def audio_human(request):
         
         #answer = lm_model.answer(params['text'])
         if params['text'] == "Could not understand audio":
-            nerfreals[params['sessionid']].put_msg_txt("Sorry, I didn't hear what you said, please try again")
+            #nerfreals[params['sessionid']].put_msg_txt("Sorry, I didn't hear what you said, please try again")
+            pass
         else:
             answer = await asyncio.to_thread(lm_model.answer, params['text'])
             clean_answer = process_input_text(answer)
-            nerfreals[params['sessionid']].put_msg_txt(clean_answer)
+            #nerfreals[params['sessionid']].put_msg_txt(clean_answer)
 
         return web.json_response({"code": 0, "data": "ok", "sessionid": session_id})
 
@@ -425,7 +431,7 @@ async def set_audiotype(request):
     params = await request.json()
 
     sessionid = params.get('sessionid',0)    
-    nerfreals[sessionid].set_curr_state(params['audiotype'],params['reinit'])
+    #nerfreals[sessionid].set_curr_state(params['audiotype'],params['reinit'])
 
     return web.Response(
         content_type="application/json",
@@ -440,9 +446,11 @@ async def record(request):
     sessionid = params.get('sessionid',0)
     if params['type']=='start_record':
         # nerfreals[sessionid].put_msg_txt(params['text'])
-        nerfreals[sessionid].start_recording()
+        #nerfreals[sessionid].start_recording()
+        pass
     elif params['type']=='end_record':
-        nerfreals[sessionid].stop_recording()
+        #nerfreals[sessionid].stop_recording()
+        pass
     return web.Response(
         content_type="application/json",
         text=json.dumps(
@@ -477,8 +485,8 @@ async def post(url,data):
         print(f'Error: {e}')
 
 async def run(push_url,sessionid):
-    nerfreal = await asyncio.get_event_loop().run_in_executor(None, build_nerfreal,sessionid)
-    nerfreals[sessionid] = nerfreal
+    #nerfreal = await asyncio.get_event_loop().run_in_executor(None, build_nerfreal,sessionid)
+    #nerfreals[sessionid] = nerfreal
 
     pc = RTCPeerConnection()
     pcs.add(pc)
@@ -490,9 +498,9 @@ async def run(push_url,sessionid):
             await pc.close()
             pcs.discard(pc)
 
-    player = HumanPlayer(nerfreals[sessionid])
-    audio_sender = pc.addTrack(player.audio)
-    video_sender = pc.addTrack(player.video)
+    #player = HumanPlayer(nerfreals[sessionid])
+    #audio_sender = pc.addTrack(player.audio)
+    #video_sender = pc.addTrack(player.video)
 
     await pc.setLocalDescription(await pc.createOffer())
     answer = await post(push_url,pc.localDescription.sdp)
@@ -707,8 +715,8 @@ if __name__ == '__main__':
 
     if opt.transport=='rtmp':
         thread_quit = Event()
-        nerfreals[0] = build_nerfreal(0)
-        rendthrd = Thread(target=nerfreals[0].render,args=(thread_quit,))
+        #nerfreals[0] = build_nerfreal(0)
+        #rendthrd = Thread(target=nerfreals[0].render,args=(thread_quit,))
         rendthrd.start()
 
     #############################################################################
