@@ -122,11 +122,11 @@
             padding: 20px;
         }
 
-        #imageDisplay {
+        #video {
             max-width: 100%;
-            max-height: 100%;
+            height: auto;
             border-radius: 8px;
-            object-fit: contain;
+            background: #000;
         }
 
         /* 消息样式（与之前一致） */
@@ -194,6 +194,26 @@
             position: relative;
         }
 
+        .input-box {
+            width: 100%;
+            background-color: var(--bg-dark);
+            border: 1px solid #606060;
+            border-radius: 8px;
+            padding: 12px 48px 12px 16px;
+            color: var(--text);
+            font-size: 16px;
+            resize: none;
+            max-height: 120px;
+            min-height: 40px;
+            outline: none;
+            transition: border-color .2s;
+        }
+
+        /*
+        .input-box:focus {
+            border-color: var(--primary);
+        }
+        */
         .input-box {
             width: 100%;
             background-color: var(--bg-dark);
@@ -346,17 +366,121 @@
             50%{opacity:1;}
         }
 
+        /*
+        .mic-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+}
+
+.mic-button {
+    background-color: #424242;
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.mic-button:hover {
+    background-color: #555;
+}
+
+.mic-button.recording {
+    background-color: #f44336;
+    animation: pulse 1.5s infinite;
+}
+
+.mic-button svg {
+    width: 24px;
+    height: 24px;
+    fill: #fff;
+}
+
+.recording-status {
+    font-size: 14px;
+    color: #aaa;
+    text-align: center;
+}
+
+.recording-status.recording {
+    color: #f44336;
+}
+
+录音加载指示器 
+.audio-loading {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.audio-loading.active {
+    display: flex;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+    }
+    70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+    }
+}
+    */
+
         #audio { display:none; }
     </style>
 
+
+
 </head>
+
+<script src="client.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script>
+/* 全局标志位 – 与旧版保持一致 */
+let mediaRecorder;
+let chunks = [];
+let isRecording = false;
+</script>
 
 <body>
 
     <input type="hidden" id="sessionid" value="0">
 
     <div class="header">
-        <h1>CityU CS2313 AI Assistant</h1>
+        <h1>CityU AI Assistant</h1>
         <div class="header-buttons">
             <button onclick="clearChat()">Clear Chat</button>
             <button onclick="exportChat()">Export Chat</button>
@@ -372,8 +496,27 @@
             </div>
             <div class="media-body">
                 <audio id="audio" autoplay></audio>
-                <img id="imageDisplay" src="c++.jpg" alt="C++ Programming" style="max-width:100%; max-height:100%; object-fit: contain;">
+                <video id="video" style="max-width:1100px;width:100%;" autoplay playsinline muted></video>
             </div>
+
+            <!--
+            <div class="mic-controls">
+                <button class="mic-button" id="micButton" onclick="toggleRecording()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                </button>
+                <div class="recording-status" id="recordingStatus">Click to start recording</div>
+            </div>
+    
+            录音加载指示器 - 添加在这里
+            <div class="audio-loading" id="audioLoading">
+                <div class="spinner"></div>
+                <div>Processing audio...</div>
+            </div>
+            -->
+
         </div>
 
         <!-- 右侧聊天 -->
@@ -381,6 +524,8 @@
             <div class="chat-container" id="chatContainer">
                 <div class="message assistant">
                     <div class="avatar">AI</div>
+                    <!-- <div class="message-content">Hello, I am CityU AI assistant! How can I help you today?</div> -->
+
                     <div class="message-content">🤖 Hey there! Greetings, future coding master! 🚀
 
 I'm your personal CityU CS2313 AI Assistant, your all-in-one sidekick for acing this course! Think of me as a pocket-sized tutor, a walking encyclopedia, and your personal quiz master, all rolled into one.
@@ -424,22 +569,7 @@ How can I help you today? 😎
     </div>
 
     <script>
-
-        function getSessionId() {
-    // 从cookie中获取session_id
-    const cookies = document.cookie.split(';');
-    for (let cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'session_id') {
-            return value;
-        }
-    }
-    // 如果没有找到，使用默认值（向后兼容）
-    return document.getElementById('sessionid').value;
-}
-
-
-        /* ===== 基础功能 ===== */
+        /* ===== 基础功能（与之前一致） ===== */
         const inputBox = document.getElementById('inputBox');
 
         let miniLoading = null;
@@ -456,72 +586,110 @@ How can I help you today? 😎
             }
         }
 
-        /* ---------- 打字机效果 ---------- */
-        function typeWriter(ele, text, speed = 16) {
-            ele.textContent = '';          // 先清空
-            let i = 0;
-            const len = text.length;
+        
+/* ---------- 打字机效果 ---------- */
+function typeWriter(ele, text, speed = 16) {
+    ele.textContent = '';          // 先清空
+    let i = 0;
+    const len = text.length;
 
-            function pump() {
-                if (i < len) {
-                    ele.textContent += text[i++];
-                    requestAnimationFrame(pump);   // 每帧写 1 个字符
-                }
-            }
-            requestAnimationFrame(pump);
+    function pump() {
+        if (i < len) {
+            ele.textContent += text[i++];
+            requestAnimationFrame(pump);   // 每帧写 1 个字符
         }
+    }
+    requestAnimationFrame(pump);
+}
 
-        function sendMessage() {
-            const inputBox = document.getElementById('inputBox');
-            const msg = inputBox.value.trim();
-            if (!msg) return;
+/*
+function sendMessage() {
+    const inputBox = document.getElementById('inputBox');
+    const msg = inputBox.value.trim();
+    if (!msg) return;
 
-            /* 1. 用户消息立即上屏 */
-            addMessage(msg, 'user');
+    /* 1. 用户消息立即上屏 
+    addMessage(msg, 'user');
 
-            /* 2. 清空输入框并复位高度 */
-            inputBox.value = '';
-            inputBox.style.height = 'auto';
+    /* 2. 清空输入框并复位高度 
+    inputBox.value = '';
+    inputBox.style.height = 'auto';
 
-            /* 3. 加载动画 */
-            showLoading();
+    /* 3. 加载动画 
+    showLoading();
 
-            fetch('/human', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json',
-                    'X-Session-ID': getSessionId()
-                 },
-                body: JSON.stringify({
-                    text: msg,
-                    type: 'echo',
-                    interrupt: true,
-                    // sessionid: +document.getElementById('sessionid').value
-                    sessionid: +getSessionId()
-                }),
-            })
-            .then(r => r.json())
-            .then(json => {
-                hideLoading();                       // 1. 隐藏加载动画
-                
-                // 检查是否是 Quiz 响应
-                if (json.action === 'open_quiz' && json.quiz_url) {
-                    // 在新标签页打开 Quiz 系统
-                    window.open(json.quiz_url, '_blank');
-                    // 显示回复消息
-                    const botEle = addMessage(json.reply || 'Quiz system started!', 'assistant');
-                    typeWriter(botEle, json.reply || 'Quiz system started!');
-                } else {
-                    // 正常处理其他回复
-                    const botEle = addMessage('', 'assistant');
-                    typeWriter(botEle, json.reply || '（无返回）');
-                }
-            })
-            .catch(err => {
-                hideLoading();
-                const botEle = addMessage('', 'assistant');
-                typeWriter(botEle, '出错：' + err);
-            });
+    fetch('/human', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            text: msg,
+            type: 'echo',
+            interrupt: true,
+            sessionid: +document.getElementById('sessionid').value
+        }),
+    })
+    .then(r => r.json())
+    .then(json => {
+        hideLoading();                       // 1. 隐藏加载动画
+        const botEle = addMessage('', 'assistant'); // 2. 先插入空壳
+        typeWriter(botEle, json.reply || '（无返回）'); // 3. 打字机效果
+    })
+    .catch(err => {
+        hideLoading();
+        const botEle = addMessage('', 'assistant');
+        typeWriter(botEle, '出错：' + err);
+    });
+}
+*/
+
+function sendMessage() {
+    const inputBox = document.getElementById('inputBox');
+    const msg = inputBox.value.trim();
+    if (!msg) return;
+
+    /* 1. 用户消息立即上屏 */
+    addMessage(msg, 'user');
+
+    /* 2. 清空输入框并复位高度 */
+    inputBox.value = '';
+    inputBox.style.height = 'auto';
+
+    /* 3. 加载动画 */
+    showLoading();
+
+    fetch('/human', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            text: msg,
+            type: 'echo',
+            interrupt: true,
+            sessionid: +document.getElementById('sessionid').value
+        }),
+    })
+    .then(r => r.json())
+    .then(json => {
+        hideLoading();                       // 1. 隐藏加载动画
+        
+        // 检查是否是 Quiz 响应
+        if (json.action === 'open_quiz' && json.quiz_url) {
+            // 在新标签页打开 Quiz 系统
+            window.open(json.quiz_url, '_blank');
+            // 显示回复消息
+            const botEle = addMessage(json.reply || 'Quiz system started!', 'assistant');
+            typeWriter(botEle, json.reply || 'Quiz system started!');
+        } else {
+            // 正常处理其他回复
+            const botEle = addMessage('', 'assistant');
+            typeWriter(botEle, json.reply || '（无返回）');
         }
+    })
+    .catch(err => {
+        hideLoading();
+        const botEle = addMessage('', 'assistant');
+        typeWriter(botEle, '出错：' + err);
+    });
+}
 
         /* ---------- 把消息塞进聊天框 ---------- */
         function addMessage(content, sender) {
@@ -566,6 +734,17 @@ How can I help you today? 😎
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
+        function generateResponse(msg) {
+            const pool = [
+                "我理解你的问题。让我想想...",
+                "这是一个有趣的问题。根据我的理解，",
+                "谢谢你提出这个问题。我认为",
+                "让我帮你分析一下这个情况。",
+                "根据我的知识，"
+            ];
+            return `${pool[Math.floor(Math.random() * pool.length)]} 我收到了你的消息："${msg}"。这是一个自动回复，实际应用中这里会连接到AI服务。`;
+        }
+
         function clearChat() {
             if (!confirm('Are you sure you want to clear the chat?')) return;
             document.querySelectorAll('.message').forEach(m => m.remove());
@@ -605,6 +784,56 @@ How can I help you today? 😎
             a.click();
             URL.revokeObjectURL(url);
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const tryStart = () => {
+                if (typeof start === 'function') {
+                    start();          // 自动协商
+                } else {
+                    setTimeout(tryStart, 50); // 等 client.js 加载完
+                }
+            };
+        tryStart();
+        });
+
+
     </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  /* ==============  1. 自动播放 & 静音，去掉控件 ============== */
+  const videoEl  = document.getElementById('video');
+  const audioEl  = document.getElementById('audio');
+
+  videoEl.playsInline = true;
+  videoEl.autoplay = true;      // 标签已写 muted，满足自动播放策略
+  audioEl.controls = false;     // 去掉音频控件
+
+  // 事件绑定先于 client.js 给流
+  videoEl.addEventListener('loadedmetadata', () => {
+    videoEl.play().catch(e => console.warn('自动播放被拦截', e));
+  });
+
+
+let isStreamCloned = false; // 新增标志位
+function keepVideoSmooth() {
+  if (!hiddenAudio) {
+    hiddenAudio = document.createElement('audio');
+    hiddenAudio.muted = true;
+    hiddenAudio.style.display = 'none';
+    document.body.appendChild(hiddenAudio);
+  }
+  // 仅首次克隆，后续不再重复操作
+  if (videoEl && videoEl.srcObject && !isStreamCloned) {
+    requestIdleCallback(() => {
+      // hiddenAudio.srcObject = videoEl.srcObject.clone();
+      isStreamCloned = true; // 标记已克隆
+    }, { timeout: 100 });
+  }
+}
+
+});
+
+</script>
 </body>
 </html>

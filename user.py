@@ -15,12 +15,15 @@ class User:
             'is_admin': self.is_admin
         })
 
-    def get_by_username(self, username):
-        #doc = self.fdb_client.collection('users').document(username).get()
-        doc = self.fdb.read_doc('users', username)
+    @classmethod
+    def get_by_username(cls, username):
+        """类方法：通过用户名获取用户"""
+        # 创建临时实例来访问fdb
+        temp_user = cls(username, "")  # 密码设为空字符串
+        doc = temp_user.fdb.read_doc('users', username)
         if doc.exists:
             data = doc.to_dict()
-            return User(data['username'], data['password'], data.get('is_admin', False))
+            return cls(data['username'], data['password'], data.get('is_admin', False))
         return None
 
     def add_wrong_answer(self, question, std_answer, user_answer, timestamp, keypoint):
@@ -31,9 +34,8 @@ class User:
             "timestamp": timestamp
         }
 
-        self.db.collection('users').document(self.username) \
+        self.fdb.collection('users').document(self.username) \
             .collection('wrong_questions') \
             .document(keypoint) \
             .collection('questions') \
             .add(wrong_answer_data)
-

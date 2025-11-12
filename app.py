@@ -71,8 +71,13 @@ from user import User
 #quizapp
 from quiz_app import QuizApp
 
+#login
+from flask import Flask, render_template, send_from_directory, request, jsonify, session, redirect, url_for, g
+from auth_system import AuthSystem
+from threading import Thread, Event
 
 app = Flask(__name__)
+app.secret_key = 'demo123'
 #sockets = Sockets(app)
 #nerfreals = {}
 opt = None
@@ -271,11 +276,12 @@ def _sync_pipeline(input_text, id):
     return answer_text
 """
 
-
+"""
 async def human(request):
     params = await request.json()
     #model = moonshot_agent()
     sessionid = params.get('sessionid',0)
+    
     if params.get('interrupt'):
         #nerfreals[sessionid].flush_talk()
         pass
@@ -283,11 +289,11 @@ async def human(request):
         print("answer generating!")
         answer_intent = input_intent.route_intent(params['text'])
 
-        """
+        
         if answer_intent == "Learning report":
             avatar_answer = avatar_input.user_answer(params['text'], answer_intent)
             nerfreals[sessionid].put_msg_txt(avatar_answer)
-        """
+        
         if answer_intent == "QUIZ":
             # 启动 QuizApp 并获取远程访问URL
             # 在后台启动 QuizApp 服务器
@@ -314,6 +320,72 @@ async def human(request):
         avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
         #nerfreals[sessionid].put_msg_txt(avatar_answer)
         print("avatar_answer:", avatar_answer)
+        return web.Response(
+            content_type="application/json",
+            text=json.dumps(
+                {"code": 0, "data": "ok", "speaking": False, "reply": rae_answer}
+            ),
+        )
+"""
+
+async def human(request):
+    # 从请求中获取session_id
+    session_id = request.headers.get('X-Session-ID')
+    if not session_id:
+        return web.Response(
+            content_type="application/json",
+            text=json.dumps({"code": 401, "error": "Not authenticated"}),
+        )
+    
+    # 从认证系统获取用户组件
+    components = auth_system.get_user_components_by_session(session_id)
+    if not components:
+        return web.Response(
+            content_type="application/json", 
+            text=json.dumps({"code": 401, "error": "Session expired or invalid"}),
+        )
+    
+    # 使用用户特定的组件
+    rae = components['rae']
+    input_intent = components['input_intent']
+    avatar_input = components['avatar_input']
+    quiz_APP = components['quiz_app']
+    user = components['user']
+    
+    # 剩下的逻辑保持不变
+    params = await request.json()
+    sessionid = params.get('sessionid',0)
+    
+    if params.get('interrupt'):
+        pass
+        
+    if params['type'] == 'echo':
+        print(f"User {user.username}: answer generating!")
+        answer_intent = await asyncio.to_thread(input_intent.route_intent, params['text'])
+        
+        if answer_intent == "QUIZ":
+            quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
+            print(f"User {user.username}: Quiz system ready at: {quiz_url}")
+
+            rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+            avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
+            
+            return web.Response(
+                content_type="application/json",
+                text=json.dumps({
+                    "code": 0, 
+                    "data": "quiz_started", 
+                    "speaking": False, 
+                    "reply": rae_answer, 
+                    "quiz_url": quiz_url,
+                    "action": "open_quiz"
+                }),
+            )
+
+        rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+        avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
+        print(f"User {user.username}: {avatar_answer}")
+        
         return web.Response(
             content_type="application/json",
             text=json.dumps(
@@ -515,6 +587,18 @@ def run_quiz_app():
     quiz_app.run(port=50012, debug=False, use_reloader=False)
 
 
+@app.route('/')
+def index():
+    """根路径重定向到登录页面"""
+    return redirect('/auth/login')
+
+@app.route('/chatapi.html')
+def chatapi():
+    """聊天页面，需要认证才能访问"""
+    if not auth_system.is_authenticated():
+        return redirect('/auth/login')
+    return send_from_directory('web', 'chatapi.html')
+
 if __name__ == '__main__':
     try:
         mp.set_start_method('spawn')
@@ -663,16 +747,20 @@ if __name__ == '__main__':
 
     #database initialization
     #fdb = fire_db()
+    auth_system = AuthSystem(user_class=User)
+    app.register_blueprint(auth_system.bp, url_prefix='/auth')
 
+    """
     user = User("2", "2", False)
     #retrival and execution initialization
     rae = re_and_exc(user)
     input_intent = intent(user)
     avatar_input = avatar_text(user)
     quiz_APP = QuizApp(user, host='0.0.0.0', port=50012)
-    print(f"QuizApp initialized:")
-    print(f"  - Server will listen on: 0.0.0.0:{quiz_APP.port}")
-    print(f"  - Accessible at: http://{quiz_APP.local_ip}:{quiz_APP.port}")
+    """
+    #print(f"QuizApp initialized:")
+    #print(f"  - Server will listen on: 0.0.0.0:{quiz_APP.port}")
+    #print(f"  - Accessible at: http://{quiz_APP.local_ip}:{quiz_APP.port}")
 
     opt.customopt = []
     if opt.customvideo_config!='':
@@ -754,6 +842,16 @@ if __name__ == '__main__':
         pagename='echoapi.html'
     elif opt.transport=='rtcpush':
         pagename='rtcpushapi.html'
+
+    def run_flask():
+        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+
+    # 使用 Thread 而不是 threading.Thread，因为你已经导入了 Thread
+    flask_thread = Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+
+    print('Flask server started at http://localhost:5000/')
+    print('Aiohttp server started at http://localhost:8010/')
     
     print('start http server; http://<serverip>:'+str(opt.listenport)+'/'+pagename)
     def run_server(runner):
