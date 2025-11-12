@@ -1,3 +1,4 @@
+{% extends "base.html" %}
 
 {% block content %}
 <style>
@@ -99,7 +100,7 @@
 
       <div class="row">
         <span class="muted">Already have an account?</span>
-        <a class="link" href="{{ url_for('login') }}">Login here →</a>
+        <a class="link" href="{{ url_for('auth.login') }}">Login here →</a>
       </div>
     </form>
   </div>
