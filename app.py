@@ -296,7 +296,9 @@ async def human(request):
         if answer_intent == "QUIZ":
             # 启动 QuizApp 并获取远程访问URL
             # 在后台启动 QuizApp 服务器
-            quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
+            # 获取用户访问的主机名，用于生成正确的跳转URL
+            request_host = request.host
+            quiz_url = await asyncio.to_thread(quiz_APP.start_in_background, request_host)
             print(f"Quiz system ready at: {quiz_url}")
 
             # 返回给前端的响应 - 包含Quiz URL
@@ -366,7 +368,9 @@ async def human(request):
         answer_intent = await asyncio.to_thread(input_intent.route_intent, params['text'])
         
         if answer_intent == "QUIZ":
-            quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
+            # 获取用户访问的主机名，用于生成正确的跳转URL
+            request_host = request.host
+            quiz_url = await asyncio.to_thread(quiz_APP.start_in_background, request_host)
             print(f"User {user.username}: Quiz system ready at: {quiz_url}")
 
             rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
@@ -454,7 +458,9 @@ async def human(request):
             answer_intent = await asyncio.to_thread(input_intent.route_intent, params['text'])
                 
             if answer_intent == "QUIZ":
-                quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
+                # 获取用户访问的主机名，用于生成正确的跳转URL
+                request_host = request.host
+                quiz_url = await asyncio.to_thread(quiz_APP.start_in_background, request_host)
                 print(f"User {user.username}: Quiz system ready at: {quiz_url}")
 
                 rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)

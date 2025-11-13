@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import re
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify, abort
+    session, flash, jsonify, abort, has_request_context
 )
 from markupsafe import Markup, escape
 from db import fire_db
@@ -19,7 +19,12 @@ class QuizApp:
     def __init__(self, user_class, host='0.0.0.0', port=5001):
         self.app = Flask(__name__)
         self.app.config['SECRET_KEY'] = 'demo123'
-
+        
+        # 配置以支持反向代理和公网访问
+        # 使 url_for 始终生成相对路径，不依赖请求头中的 Host
+        self.app.config['PREFERRED_URL_SCHEME'] = 'http'
+        self.app.config['APPLICATION_ROOT'] = '/'
+        
         # 保存主机和端口配置
         self.host = host  # 0.0.0.0 表示监听所有网络接口
         self.port = port
@@ -179,12 +184,81 @@ class QuizApp:
                 print(f"Warning: Could not add firewall rule: {e}")
 
 
-    def get_remote_url(self, path="/dashboard"):
-        """生成设备B可以访问的URL"""
-        # 使用动态获取的设备A的IP地址
+    def _build_url_from_request_host(self, request_host, path="/dashboard"):
+        """根据 request_host 构建 URL
+        
+        Args:
+            request_host: 用户访问的主机名（例如 "47.250.116.163:5000"）
+            path: URL路径
+        """
+        if request_host:
+            try:
+                # 分离主机名和端口
+                if request_host.startswith('['):
+                    # IPv6 地址
+                    hostname = request_host.rsplit(']:', 1)[0] + ']'
+                elif ':' in request_host and request_host.count(':') == 1:
+                    # IPv4 地址带端口
+                    hostname = request_host.rsplit(':', 1)[0]
+                else:
+                    # 纯主机名或纯 IPv4（无端口）
+                    hostname = request_host
+                
+                # 构造包含 QuizApp 端口的 URL
+                url = f"http://{hostname}:{self.port}{path}"
+                print(f"QuizApp URL (using request host): {url}")
+                return url
+            except Exception as e:
+                print(f"Error parsing request host: {e}, falling back to local IP")
+        
+        # 回退到本地 IP
         url = f"http://{self.local_ip}:{self.port}{path}"
-        print(f"QuizApp URL for device B: {url}")
+        print(f"QuizApp URL (using local IP): {url}")
         return url
+    
+    def get_remote_url(self, path="/dashboard", use_request_host=True):
+        """生成设备B可以访问的URL
+        
+        Args:
+            path: URL路径
+            use_request_host: 如果为True且在请求上下文中，使用请求的主机名（支持公网访问）
+                             如果为False，使用本地检测到的IP地址
+        """
+        if use_request_host and has_request_context():
+            try:
+                # 在 Flask 请求上下文中，获取用户访问的主机名
+                # request.host 包含主机名和端口，例如 "47.250.116.163:5000"
+                # 我们需要提取主机名部分，然后使用 QuizApp 的端口
+                host_with_port = request.host
+                
+                # 分离主机名和端口（处理 IPv6 地址的情况）
+                # IPv6 地址格式: [::1]:5000 或 [2001:db8::1]:5000
+                # IPv4 地址格式: 47.250.116.163:5000
+                if host_with_port.startswith('['):
+                    # IPv6 地址
+                    hostname = host_with_port.rsplit(']:', 1)[0] + ']'
+                elif ':' in host_with_port and host_with_port.count(':') == 1:
+                    # IPv4 地址带端口
+                    hostname = host_with_port.rsplit(':', 1)[0]
+                else:
+                    # 纯主机名或纯 IPv4（无端口）
+                    hostname = host_with_port
+                
+                # 构造包含 QuizApp 端口的 URL
+                url = f"http://{hostname}:{self.port}{path}"
+                print(f"QuizApp URL (using request host): {url}")
+                return url
+            except Exception as e:
+                print(f"Error getting request host: {e}, falling back to local IP")
+                # 出错时回退到本地 IP
+                url = f"http://{self.local_ip}:{self.port}{path}"
+                print(f"QuizApp URL (fallback to local IP): {url}")
+                return url
+        else:
+            # 使用本地检测到的IP地址
+            url = f"http://{self.local_ip}:{self.port}{path}"
+            print(f"QuizApp URL (using local IP): {url}")
+            return url
 
     """
     def start_in_background(self):
@@ -218,8 +292,16 @@ class QuizApp:
             return self.get_remote_url()
     """
 
-    def start_in_background(self):
-        """在后台启动服务器并返回远程URL"""
+    def start_in_background(self, request_host=None):
+        """在后台启动服务器并返回远程URL
+        
+        Args:
+            request_host: 用户访问的主机名（例如 "47.250.116.163:5000"），
+                         用于生成正确的跳转URL。如果为 None，将使用本地IP。
+        """
+        # 保存 request_host 供后续使用
+        self._request_host = request_host
+        
         try:
             # 每次启动时重新获取IP地址，以防IP发生变化
             current_ip = self._get_local_ip()
@@ -230,11 +312,11 @@ class QuizApp:
             # 检查端口是否已被占用
             if self._is_port_in_use(self.port):
                 print(f"Port {self.port} is already in use, trying to use existing server")
-                return self.get_remote_url()
+                return self._build_url_from_request_host(request_host)
         
             if self.server_thread and self.server_thread.is_alive():
                 print("QuizApp server is already running")
-                return self.get_remote_url()
+                return self._build_url_from_request_host(request_host)
         
             # 启动服务器线程
             print("Starting QuizApp server in background thread...")
@@ -245,18 +327,17 @@ class QuizApp:
             success = self._wait_for_server()
         
             if success:
-                remote_url = self.get_remote_url()
+                remote_url = self._build_url_from_request_host(request_host)
                 print(f"✓ QuizApp is ready at: {remote_url}")
                 return remote_url
             else:
-                # 如果服务器启动失败，返回一个错误页面URL
-                error_url = f"http://{self.local_ip}:{self.port}/server_error"
-                print(f"✗ QuizApp server failed to start, but you can try: {self.get_remote_url()}")
-                return self.get_remote_url()  # 仍然返回URL，让用户尝试
+                # 如果服务器启动失败，返回URL让用户尝试
+                print(f"✗ QuizApp server failed to start, but you can try: {self._build_url_from_request_host(request_host)}")
+                return self._build_url_from_request_host(request_host)
             
         except Exception as e:
             print(f"Error starting QuizApp in background: {e}")
-            return self.get_remote_url()
+            return self._build_url_from_request_host(request_host)
 
     """
     def _start_server_async(self):
@@ -329,8 +410,9 @@ class QuizApp:
                 import urllib.request
                 response = urllib.request.urlopen(test_url, timeout=2)
                 if response.getcode() == 200:
-                    # 服务器已启动，打印可访问的URL
-                    remote_url = self.get_remote_url()
+                    # 服务器已启动，打印可访问的URL（使用保存的 request_host）
+                    request_host = getattr(self, '_request_host', None)
+                    remote_url = self._build_url_from_request_host(request_host)
                     print(f"✓ QuizApp server is ready and accessible at: {remote_url}")
                     return True
             except Exception as e:
