@@ -44,53 +44,70 @@ class QuizApp:
         
         print(f"QuizApp initialized - Accessible at: http://{self.local_ip}:{self.port}")
 
+    def _is_port_in_use(self, port):
+        """检查端口是否已被占用"""
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('127.0.0.1', port))
+                return False
+            except socket.error:
+                return True
+
+
     def _get_local_ip(self):
-        """动态获取设备A的局域网IP地址"""
+        #动态获取设备A的局域网IP地址
         try:
-            # 方法1: 尝试获取公网IP（适用于云服务器）
-            import requests
-            public_ip = requests.get('https://api.ipify.org', timeout=3).text.strip()
-            if public_ip:
-                return public_ip
-        except:
-            pass
-        
-        try:
-            # 方法2: 通过连接外部服务器获取本机IP
+            # 方法1: 使用socket连接获取出站IP（这个可能返回错误的144.214.0.16）
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
+            outbound_ip = s.getsockname()[0]
             s.close()
-            return ip
+            print(f"Outbound IP: {outbound_ip}")
         except:
-            try:
-                # 方法2: 使用netifaces获取所有网络接口的IP
-                import netifaces
-                interfaces = netifaces.interfaces()
-                for interface in interfaces:
-                    addrs = netifaces.ifaddresses(interface)
-                    if netifaces.AF_INET in addrs:
-                        for addr in addrs[netifaces.AF_INET]:
-                            ip = addr['addr']
-                            # 排除回环地址和链路本地地址
-                            if ip != '127.0.0.1' and not ip.startswith('169.254'):
-                                return ip
-            except:
-                # 方法3: 使用socket.gethostbyname
-                try:
-                    hostname = socket.gethostname()
-                    ip = socket.gethostbyname(hostname)
-                    if ip != '127.0.0.1':
-                        return ip
-                except:
-                    pass
+            outbound_ip = None
+    
+        try:
+            # 方法2: 获取所有网络接口的IP，优先选择正确的网段
+            import netifaces
+            interfaces = netifaces.interfaces()
+            all_ips = []
         
-        # 如果所有方法都失败，返回回环地址
-        print("Fail to get ip!!!!!!!!!")
+            for interface in interfaces:
+                addrs = netifaces.ifaddresses(interface)
+                if netifaces.AF_INET in addrs:
+                    for addr in addrs[netifaces.AF_INET]:
+                        ip = addr['addr']
+                        if ip != '127.0.0.1' and not ip.startswith('169.254'):
+                            all_ips.append((interface, ip))
+        
+            print(f"All network IPs: {all_ips}")
+        
+            # 优先选择172.28.x.x网段的IP
+            for interface, ip in all_ips:
+                if ip.startswith('172.28.'):
+                    print(f"Selected preferred IP {ip} from interface {interface}")
+                    return ip
+        
+            # 如果没有172.28网段，选择第一个非出站IP
+            for interface, ip in all_ips:
+                if ip != outbound_ip:
+                    print(f"Selected alternative IP {ip} from interface {interface}")
+                    return ip
+        
+            # 最后选择出站IP
+            if outbound_ip:
+                print(f"Using outbound IP: {outbound_ip}")
+                return outbound_ip
+            
+        except Exception as e:
+            print(f"Error getting network interfaces: {e}")
+    
         return "127.0.0.1"
 
+    """
     def _add_firewall_rule(self):
-        """添加防火墙规则允许外部访问"""
+        #添加防火墙规则允许外部访问
         if os.name == 'nt':  # Windows
             try:
                 import subprocess
@@ -116,6 +133,51 @@ class QuizApp:
                     print(f"Firewall rule for port {self.port} already exists")
             except Exception as e:
                 print(f"Warning: Could not add firewall rule: {e}")
+    """
+
+    def _add_firewall_rule(self):
+        """添加防火墙规则允许外部访问"""
+        if os.name == 'nt':  # Windows
+            try:
+                import subprocess
+                rule_name = f"Open TCP Port {self.port} for QuizApp"
+            
+                # 使用更安全的方式执行命令，忽略输出编码
+                try:
+                    # 检查规则是否已存在
+                    result = subprocess.run([
+                        'netsh', 'advfirewall', 'firewall', 'show', 'rule',
+                        f'name={rule_name}'
+                    ], capture_output=True, text=True, encoding='utf-8', errors='ignore')
+                
+                    # 如果规则不存在，则添加
+                    if "No rules match" in result.stdout:
+                        subprocess.run([
+                            'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                            f'name={rule_name}',
+                            'dir=in',
+                            'action=allow',
+                            'protocol=TCP',
+                            f'localport={self.port}'
+                        ], capture_output=True, text=True, encoding='utf-8', errors='ignore')
+                        print(f"Firewall rule added for port {self.port}")
+                    else:
+                        print(f"Firewall rule for port {self.port} already exists")
+                except UnicodeDecodeError:
+                    # 如果仍然有编码问题，使用二进制模式
+                    subprocess.run([
+                        'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                        f'name={rule_name}',
+                        'dir=in',
+                        'action=allow',
+                        'protocol=TCP',
+                        f'localport={self.port}'
+                    ], capture_output=True)
+                    print(f"Firewall rule added for port {self.port} (binary mode)")
+                
+            except Exception as e:
+                print(f"Warning: Could not add firewall rule: {e}")
+
 
     def get_remote_url(self, path="/dashboard"):
         """生成设备B可以访问的URL"""
@@ -124,8 +186,9 @@ class QuizApp:
         print(f"QuizApp URL for device B: {url}")
         return url
 
+    """
     def start_in_background(self):
-        """在后台启动服务器并返回远程URL"""
+        #在后台启动服务器并返回远程URL
         try:
             # 每次启动时重新获取IP地址，以防IP发生变化
             current_ip = self._get_local_ip()
@@ -153,9 +216,51 @@ class QuizApp:
         except Exception as e:
             print(f"Error starting QuizApp in background: {e}")
             return self.get_remote_url()
+    """
 
+    def start_in_background(self):
+        """在后台启动服务器并返回远程URL"""
+        try:
+            # 每次启动时重新获取IP地址，以防IP发生变化
+            current_ip = self._get_local_ip()
+            if current_ip != self.local_ip:
+                print(f"IP address changed from {self.local_ip} to {current_ip}")
+                self.local_ip = current_ip
+        
+            # 检查端口是否已被占用
+            if self._is_port_in_use(self.port):
+                print(f"Port {self.port} is already in use, trying to use existing server")
+                return self.get_remote_url()
+        
+            if self.server_thread and self.server_thread.is_alive():
+                print("QuizApp server is already running")
+                return self.get_remote_url()
+        
+            # 启动服务器线程
+            print("Starting QuizApp server in background thread...")
+            self.server_thread = threading.Thread(target=self._start_server_async, daemon=True)
+            self.server_thread.start()
+        
+            # 在新线程中等待服务器启动
+            success = self._wait_for_server()
+        
+            if success:
+                remote_url = self.get_remote_url()
+                print(f"✓ QuizApp is ready at: {remote_url}")
+                return remote_url
+            else:
+                # 如果服务器启动失败，返回一个错误页面URL
+                error_url = f"http://{self.local_ip}:{self.port}/server_error"
+                print(f"✗ QuizApp server failed to start, but you can try: {self.get_remote_url()}")
+                return self.get_remote_url()  # 仍然返回URL，让用户尝试
+            
+        except Exception as e:
+            print(f"Error starting QuizApp in background: {e}")
+            return self.get_remote_url()
+
+    """
     def _start_server_async(self):
-        """异步启动服务器"""
+        #异步启动服务器
         try:
             print(f"Starting Flask server on {self.host}:{self.port}")
             self.app.run(
@@ -167,9 +272,32 @@ class QuizApp:
             )
         except Exception as e:
             print(f"Error in server thread: {e}")
+    """
 
+    def _start_server_async(self):
+        """异步启动服务器"""
+        try:
+            print(f"Starting Flask server on {self.host}:{self.port}")
+            # 禁用重载器，避免重复启动
+            self.app.run(
+                host=self.host, 
+                port=self.port, 
+                debug=False, 
+                use_reloader=False, 
+                threaded=True
+            )
+        except OSError as e:
+            if "Address already in use" in str(e):
+                print(f"Port {self.port} is already in use by another process")
+            else:
+                print(f"Error starting QuizApp server: {e}")
+        except Exception as e:
+            print(f"Unexpected error in server thread: {e}")
+
+
+    """
     def _wait_for_server(self):
-        """等待服务器启动"""
+        #等待服务器启动
         import time
         max_wait = 15
         # 使用localhost来测试服务器是否启动
@@ -187,6 +315,33 @@ class QuizApp:
             except Exception as e:
                 if i == max_wait - 1:
                     print(f"Warning: QuizApp server might not be fully ready: {e}")
+    """
+
+    def _wait_for_server(self):
+        """等待服务器启动"""
+        import time
+        max_wait = 20  # 增加等待时间
+        test_url = f"http://127.0.0.1:{self.port}/dashboard"
+    
+        for i in range(max_wait):
+            time.sleep(1)
+            try:
+                import urllib.request
+                response = urllib.request.urlopen(test_url, timeout=2)
+                if response.getcode() == 200:
+                    # 服务器已启动，打印可访问的URL
+                    remote_url = self.get_remote_url()
+                    print(f"✓ QuizApp server is ready and accessible at: {remote_url}")
+                    return True
+            except Exception as e:
+                if i == max_wait - 1:
+                    print(f"✗ QuizApp server failed to start: {e}")
+                    print(f"  Please check if port {self.port} is available")
+                    return False
+                elif i % 5 == 0:  # 每5秒打印一次状态
+                    print(f"  Waiting for QuizApp server... ({i+1}/{max_wait} seconds)")
+    
+        return False
     
     def _setup_filters(self):
         """设置模板过滤器"""
@@ -194,7 +349,7 @@ class QuizApp:
         self.app.add_template_filter(self._extract_mcq_options_filter(), 'extract_mcq_options')
 
     def _setup_routes(self):
-        """设置路由"""
+        #设置路由
         # 添加练习视图
         self.app.add_url_rule(
             '/practice/<string:list_id>/<string:kp_name>',
@@ -209,6 +364,29 @@ class QuizApp:
         self.app.route('/delete_account', methods=['GET', 'POST'])(self.delete_account)
         self.app.route('/logout')(self.logout)
         self.app.route('/')(self.index)
+        self.app.route('/server_error')(self.server_error)  # 添加错误页面
+
+    def server_error(self):
+        """服务器错误页面"""
+        return """
+        <html>
+            <head><title>QuizApp Server Error</title></head>
+            <body>
+                <h1>QuizApp Server Error</h1>
+                <p>The QuizApp server failed to start properly.</p>
+                <p>Please check:</p>
+                <ul>
+                    <li>Port 50012 is not already in use</li>
+                    <li>Firewall allows access to port 50012</li>
+                    <li>Try refreshing the page</li>
+                </ul>
+                <p><a href="/dashboard">Try accessing dashboard again</a></p>
+            </body>
+        </html>
+        """
+
+
+    
 
     class MCQHtmlFilter:
         _re_options_split = re.compile(r'Options?\s*:\s*', flags=re.IGNORECASE)
@@ -597,5 +775,6 @@ class KnowledgePoint:
                 questions=data.get('questions', [])
             )
         return None
+
 
 

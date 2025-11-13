@@ -93,8 +93,9 @@ class AuthSystem:
             return self.user_class.get_by_username(session['user_id'])
         return None
     
+    """
     def login(self):
-        """登录处理"""
+        #登录处理
         if request.method == 'POST':
             username = request.form['username'].strip()
             password = request.form['password']
@@ -120,6 +121,83 @@ class AuthSystem:
         
         return render_template('login.html')
     
+    
+    def login(self):
+        #登录处理
+        if request.method == 'POST':
+            username = request.form['username'].strip()
+            password = request.form['password']
+        
+            # 与 Firebase 数据库交互验证用户
+            user = self.user_class.get_by_username(username)
+        
+            if not user or not check_password_hash(user.password, password):
+                flash('Incorrect username or password.')
+                return redirect(url_for('auth.login'))
+        
+            # 设置会话，保存用户信息
+            session['user_id'] = user.username
+            session['username'] = user.username
+            session['is_admin'] = user.is_admin
+        
+            # 预初始化用户组件
+            session_id = session['session_id']
+            self._get_or_create_session_components(session_id, user)
+        
+            # 重定向到主应用界面，并传递会话ID
+            response = redirect('/chatapi.html')
+            # 设置一个明确的session_id cookie供前端使用
+            response.set_cookie('app_session_id', session_id)
+            return response
+    
+        return render_template('login.html')
+        """
+
+    def login(self):
+        #登录处理"""
+        if request.method == 'POST':
+            username = request.form['username'].strip()
+            password = request.form['password']
+    
+            # 与 Firebase 数据库交互验证用户
+            user = self.user_class.get_by_username(username)
+    
+            if not user or not check_password_hash(user.password, password):
+                flash('Incorrect username or password.')
+                return redirect(url_for('auth.login'))
+    
+            # 在设置新会话前，先彻底清理旧会话
+            old_session_id = session.get('session_id')
+            if old_session_id and old_session_id in self._session_components:
+                with self._session_components_lock:
+                    del self._session_components[old_session_id]
+                    print(f"Cleaned up old session components: {old_session_id}")
+        
+            # 重新生成会话ID，确保全新会话
+            session.clear()  # 彻底清除所有会话数据
+            session['session_id'] = self._generate_session_id()
+    
+            # 设置会话，保存用户信息
+            session['user_id'] = user.username
+            session['username'] = user.username
+            session['is_admin'] = user.is_admin
+    
+            # 强制创建新的用户组件
+            session_id = session['session_id']
+            self._get_or_create_session_components(session_id, user)
+    
+            print(f"User {username} logged in with new session: {session_id}")
+            print(f"Current session data: {dict(session)}")
+    
+            # 重定向到主应用界面
+            response = redirect('/chatapi.html')
+            # 设置一个明确的session_id cookie供前端使用
+            response.set_cookie('app_session_id', session_id)
+        
+            return response
+
+        return render_template('login.html')
+
     def register(self):
         """注册处理"""
         if request.method == 'POST':
@@ -175,3 +253,8 @@ class AuthSystem:
             for session_id in expired_sessions:
                 del self._session_components[session_id]
                 print(f"Cleaned up expired session: {session_id}")
+    
+    def get_all_sessions(self):
+        """获取所有活跃会话用于调试"""
+        with self._session_components_lock:
+            return list(self._session_components.keys())

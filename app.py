@@ -16,7 +16,7 @@
 ###############################################################################
 
 # server.py
-from flask import Flask, render_template,send_from_directory,request, jsonify
+from flask import Flask, render_template,send_from_directory,request, jsonify, redirect
 from flask_sockets import Sockets
 import base64
 import time
@@ -72,9 +72,8 @@ from user import User
 from quiz_app import QuizApp
 
 #login
-from flask import Flask, render_template, send_from_directory, request, jsonify, session, redirect, url_for, g
 from auth_system import AuthSystem
-from threading import Thread, Event
+from aiohttp_wsgi import WSGIHandler
 
 app = Flask(__name__)
 app.secret_key = 'demo123'
@@ -326,11 +325,12 @@ async def human(request):
                 {"code": 0, "data": "ok", "speaking": False, "reply": rae_answer}
             ),
         )
-"""
+
 
 async def human(request):
     # 从请求中获取session_id
     session_id = request.headers.get('X-Session-ID')
+    print(f"Received request with session_id: {session_id}")
     if not session_id:
         return web.Response(
             content_type="application/json",
@@ -339,7 +339,9 @@ async def human(request):
     
     # 从认证系统获取用户组件
     components = auth_system.get_user_components_by_session(session_id)
+    print(f"Retrieved components: {components is not None}")
     if not components:
+        print("No components found for session")
         return web.Response(
             content_type="application/json", 
             text=json.dumps({"code": 401, "error": "Session expired or invalid"}),
@@ -392,7 +394,108 @@ async def human(request):
                 {"code": 0, "data": "ok", "speaking": False, "reply": rae_answer}
             ),
         )
+"""
 
+async def human(request):
+    try:
+        # 从请求头获取 session_id
+        session_id = request.headers.get('X-Session-ID')
+        print(f"Received request with session_id from header: {session_id}")
+            
+        # 如果头中没有，尝试从 cookie 获取
+        if not session_id:
+            cookie_header = request.headers.get('Cookie', '')
+            cookies = {}
+            for part in cookie_header.split(';'):
+                part = part.strip()
+                if '=' in part:
+                    key, value = part.split('=', 1)
+                    cookies[key.strip()] = value.strip()
+            session_id = cookies.get('session_id')
+            print(f"Received request with session_id from cookie: {session_id}")
+            
+        if not session_id:
+            print("No session_id found in header or cookie")
+            return web.Response(
+                content_type="application/json",
+                text=json.dumps({"code": 401, "error": "Not authenticated"}),
+            )
+            
+        # 从全局的 auth_system 获取组件
+        print(f"Looking for components with session_id: {session_id}")
+        components = auth_system.get_user_components_by_session(session_id)
+        print(f"Retrieved components: {components}")
+            
+        if not components:
+            print(f"No components found for session {session_id}")
+            # 打印所有当前会话以帮助调试
+            print(f"All active sessions: {auth_system.get_all_sessions()}")
+            return web.Response(
+                content_type="application/json", 
+                text=json.dumps({"code": 401, "error": "Session expired or invalid"}),
+            )
+            
+        # 使用用户特定的组件
+        rae = components['rae']
+        input_intent = components['input_intent']
+        avatar_input = components['avatar_input']
+        quiz_APP = components['quiz_app']
+        user = components['user']
+            
+        # 解析请求参数
+        params = await request.json()
+        sessionid = params.get('sessionid',0)
+            
+        if params.get('interrupt'):
+            pass
+                
+        if params['type'] == 'echo':
+            print(f"User {user.username}: answer generating!")
+            answer_intent = await asyncio.to_thread(input_intent.route_intent, params['text'])
+                
+            if answer_intent == "QUIZ":
+                quiz_url = await asyncio.to_thread(quiz_APP.start_in_background)
+                print(f"User {user.username}: Quiz system ready at: {quiz_url}")
+
+                rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+                avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
+                    
+                return web.Response(
+                    content_type="application/json",
+                    text=json.dumps({
+                        "code": 0, 
+                        "data": "quiz_started", 
+                        "speaking": False, 
+                        "reply": rae_answer, 
+                        "quiz_url": quiz_url,
+                        "action": "open_quiz"
+                    }),
+                )
+
+            rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+            avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
+            print(f"User {user.username}: {avatar_answer}")
+                
+            return web.Response(
+                content_type="application/json",
+                text=json.dumps(
+                    {"code": 0, "data": "ok", "speaking": False, "reply": rae_answer}
+                ),
+            )
+    
+    except json.JSONDecodeError:
+        return web.Response(
+            content_type="application/json",
+            text=json.dumps({"code": 400, "error": "Invalid JSON"}),
+        )
+    except Exception as e:
+        print(f"Error in human function: {e}")
+        import traceback
+        traceback.print_exc()
+        return web.Response(
+            content_type="application/json",
+            text=json.dumps({"code": 500, "error": "Internal server error"}),
+        )
 
 async def humanaudio(request):
     try:
@@ -584,7 +687,7 @@ async def run(push_url,sessionid):
 
 def run_quiz_app():
     """在单独线程中运行 QuizApp"""
-    quiz_app.run(port=50012, debug=False, use_reloader=False)
+    quiz_app.run(port=5000, debug=False, use_reloader=False)
 
 
 @app.route('/')
@@ -598,6 +701,8 @@ def chatapi():
     if not auth_system.is_authenticated():
         return redirect('/auth/login')
     return send_from_directory('web', 'chatapi.html')
+
+
 
 if __name__ == '__main__':
     try:
@@ -742,6 +847,75 @@ if __name__ == '__main__':
     parser.add_argument('--listenport', type=int, default=50051)
 
     opt = parser.parse_args()
+
+
+    from aiohttp_wsgi import WSGIHandler
+
+    async def run_integrated_server():
+        """创建整合的 aiohttp 应用"""
+        appasync = web.Application()
+
+        # 添加原有的 aiohttp 路由
+        appasync.on_shutdown.append(on_shutdown)
+        appasync.router.add_post("/offer", offer)
+        appasync.router.add_post("/human", human)
+        appasync.router.add_post("/audio_human", audio_human)
+        appasync.router.add_post("/humanaudio", humanaudio)
+        appasync.router.add_post("/set_audiotype", set_audiotype)
+        appasync.router.add_post("/record", record)
+        appasync.router.add_post("/is_speaking", is_speaking)
+
+        appasync.router.add_static('/static/', path='static', name='static')
+        appasync.router.add_static('/web/', path='web', name='web')
+
+
+        # 创建 WSGI handler 来处理 Flask 应用
+        wsgi_handler = WSGIHandler(app)
+
+        # 添加 Flask 路由到 aiohttp
+        async def flask_handler(request):
+            return await wsgi_handler.handle_request(request)
+
+        # 匹配所有其他路由到 Flask
+        appasync.router.add_route('*', '/{path_info:.*}', flask_handler)
+
+        # 配置 CORS - 使用更简单的方法
+        cors = aiohttp_cors.setup(appasync, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_headers="*",
+        )
+        })
+
+        # 只为具体的 API 路由手动添加 CORS，完全避免通配路由
+        api_routes = [
+            ("/offer", "POST"),
+            ("/human", "POST"), 
+            ("/audio_human", "POST"),
+            ("/humanaudio", "POST"),
+            ("/set_audiotype", "POST"),
+            ("/record", "POST"),
+            ("/is_speaking", "POST"),
+        ]
+    
+        # 手动为每个 API 路由配置 CORS
+        for route_info in api_routes:
+            path, method = route_info
+            resource = appasync.router.add_resource(path)
+            route = resource.add_route(method, globals()[path[1:]])  # 获取对应的处理函数
+            cors.add(route)
+
+        # 启动服务器
+        runner = web.AppRunner(appasync)
+        await runner.setup()
+        site = web.TCPSite(runner, '0.0.0.0', 5000)
+
+        print('Starting integrated server on http://<ip>:5000/')
+        await site.start()
+
+        await asyncio.Future()
+
     #app.config.from_object(opt)
     #print(app.config)
 
@@ -811,6 +985,12 @@ if __name__ == '__main__':
         #rendthrd = Thread(target=nerfreals[0].render,args=(thread_quit,))
         rendthrd.start()
 
+    try:
+        asyncio.run(run_integrated_server())
+    except KeyboardInterrupt:
+        print("Server stopped")
+
+    """
     #############################################################################
     appasync = web.Application()
     appasync.on_shutdown.append(on_shutdown)
@@ -843,15 +1023,6 @@ if __name__ == '__main__':
     elif opt.transport=='rtcpush':
         pagename='rtcpushapi.html'
 
-    def run_flask():
-        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
-
-    # 使用 Thread 而不是 threading.Thread，因为你已经导入了 Thread
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-
-    print('Flask server started at http://localhost:5000/')
-    print('Aiohttp server started at http://localhost:8010/')
     
     print('start http server; http://<serverip>:'+str(opt.listenport)+'/'+pagename)
     def run_server(runner):
@@ -869,6 +1040,7 @@ if __name__ == '__main__':
         loop.run_forever()    
     #Thread(target=run_server, args=(web.AppRunner(appasync),)).start()
     run_server(web.AppRunner(appasync))
+    """
 
     #app.on_shutdown.append(on_shutdown)
     #app.router.add_post("/offer", offer)

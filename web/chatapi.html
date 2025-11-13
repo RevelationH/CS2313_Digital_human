@@ -372,7 +372,9 @@
             </div>
             <div class="media-body">
                 <audio id="audio" autoplay></audio>
-                <img id="imageDisplay" src="c++.jpg" alt="C++ Programming" style="max-width:100%; max-height:100%; object-fit: contain;">
+                <img id="imageDisplay" src="/web/c++.jpg" alt="C++ Programming" 
+                    onerror="this.style.display='none'; console.log('Image failed to load')"
+                    style="max-width:100%; max-height:100%; object-fit: contain;">
             </div>
         </div>
 
@@ -425,7 +427,7 @@ How can I help you today? 😎
 
     <script>
 
-        function getSessionId() {
+        /*function getSessionId() {
     // 从cookie中获取session_id
     const cookies = document.cookie.split(';');
     for (let cookie of cookies) {
@@ -436,6 +438,32 @@ How can I help you today? 😎
     }
     // 如果没有找到，使用默认值（向后兼容）
     return document.getElementById('sessionid').value;
+}*/
+function getSessionId() {
+    // 首先尝试从我们设置的cookie中获取
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'app_session_id') {
+            return value;
+        }
+    }
+    
+    // 如果没有找到，回退到从服务器获取当前用户信息
+    return fetch('/auth/current_user')
+        .then(r => {
+            if (r.ok) return r.json();
+            throw new Error('Not authenticated');
+        })
+        .then(data => {
+            if (data.user_id) {
+                // 如果用户已认证但没有session_id，我们需要重新获取
+                // 这里可以触发重新登录或使用默认会话
+                return 'default_session';
+            }
+            return '0';
+        })
+        .catch(() => '0');
 }
 
 
@@ -470,20 +498,21 @@ How can I help you today? 😎
             }
             requestAnimationFrame(pump);
         }
-
+        
+        /*
         function sendMessage() {
             const inputBox = document.getElementById('inputBox');
             const msg = inputBox.value.trim();
             if (!msg) return;
 
-            /* 1. 用户消息立即上屏 */
+            /* 1. 用户消息立即上屏 
             addMessage(msg, 'user');
 
-            /* 2. 清空输入框并复位高度 */
+            /* 2. 清空输入框并复位高度 
             inputBox.value = '';
             inputBox.style.height = 'auto';
 
-            /* 3. 加载动画 */
+            /* 3. 加载动画 
             showLoading();
 
             fetch('/human', {
@@ -522,6 +551,59 @@ How can I help you today? 😎
                 typeWriter(botEle, '出错：' + err);
             });
         }
+        */
+
+async function sendMessage() {
+    const inputBox = document.getElementById('inputBox');
+    const msg = inputBox.value.trim();
+    if (!msg) return;
+
+    /* 1. 用户消息立即上屏 */
+    addMessage(msg, 'user');
+
+    /* 2. 清空输入框并复位高度 */
+    inputBox.value = '';
+    inputBox.style.height = 'auto';
+
+    /* 3. 加载动画 */
+    showLoading();
+
+    try {
+        // 异步获取会话ID
+        const sessionId = await getSessionId();
+        
+        const response = await fetch('/human', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Session-ID': sessionId
+            },
+            body: JSON.stringify({
+                text: msg,
+                type: 'echo',
+                interrupt: true,
+                sessionid: +sessionId
+            }),
+        });
+        
+        const json = await response.json();
+        hideLoading();
+        
+        // 检查是否是 Quiz 响应
+        if (json.action === 'open_quiz' && json.quiz_url) {
+            window.open(json.quiz_url, '_blank');
+            const botEle = addMessage(json.reply || 'Quiz system started!', 'assistant');
+            typeWriter(botEle, json.reply || 'Quiz system started!');
+        } else {
+            const botEle = addMessage('', 'assistant');
+            typeWriter(botEle, json.reply || '（无返回）');
+        }
+    } catch (err) {
+        hideLoading();
+        const botEle = addMessage('', 'assistant');
+        typeWriter(botEle, '出错：' + err);
+    }
+}
 
         /* ---------- 把消息塞进聊天框 ---------- */
         function addMessage(content, sender) {
