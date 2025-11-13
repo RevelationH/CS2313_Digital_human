@@ -6,17 +6,25 @@ import time
 import uuid
 
 class AuthSystem:
-    def __init__(self, user_class, secret_key='demo123'):
+    def __init__(self, user_class, flask_app=None, secret_key='demo123'):
         self.user_class = user_class
         self.secret_key = secret_key
         self.bp = Blueprint('auth', __name__)
+        self.flask_app = flask_app
         
         # Session ID 到用户组件的映射
         self._session_components_lock = threading.RLock()
         self._session_components = {}  # session_id -> components
         
+        # QuizApp 的全局实例用于路由注册
+        self._quiz_app_routes_registered = False
+        
         self._setup_routes()
         self._setup_middleware()
+        
+        # 如果提供了 flask_app，在应用启动前注册 QuizApp 路由
+        if flask_app:
+            self._register_quiz_routes(flask_app)
     
     def _setup_routes(self):
         """设置认证相关的路由"""
@@ -46,6 +54,20 @@ class AuthSystem:
         """生成唯一的Session ID"""
         return str(uuid.uuid4())
     
+    def _register_quiz_routes(self, flask_app):
+        """在应用启动前注册 QuizApp 路由（只注册一次）"""
+        if self._quiz_app_routes_registered:
+            return
+        
+        from quiz_app import QuizApp
+        # 创建一个临时的 QuizApp 实例来注册路由
+        # 使用一个虚拟用户，因为我们只需要注册路由结构
+        dummy_user = self.user_class("_dummy_", "_dummy_", False)
+        temp_quiz = QuizApp(dummy_user, external_app=flask_app, host='0.0.0.0', port=5000)
+        
+        self._quiz_app_routes_registered = True
+        print("QuizApp routes pre-registered to Flask app")
+    
     def _get_or_create_session_components(self, session_id, user):
         """获取或创建Session特定的用户组件"""
         with self._session_components_lock:
@@ -53,11 +75,13 @@ class AuthSystem:
                 from retrival import re_and_exc, intent, avatar_text
                 from quiz_app import QuizApp
                 
+                # 创建仅数据的 QuizApp 实例（路由已在 AuthSystem 初始化时注册）
+                # 传入 skip_setup=True 来避免重复注册路由
                 components = {
                     'rae': re_and_exc(user),
                     'input_intent': intent(user),
                     'avatar_input': avatar_text(user),
-                    'quiz_app': QuizApp(user, host='0.0.0.0', port=50012),
+                    'quiz_app': QuizApp(user, external_app=self.flask_app, host='0.0.0.0', port=5000, skip_setup=True),
                     'user': user,
                     'last_accessed': time.time()
                 }

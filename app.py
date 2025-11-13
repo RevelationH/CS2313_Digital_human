@@ -927,7 +927,8 @@ if __name__ == '__main__':
 
     #database initialization
     #fdb = fire_db()
-    auth_system = AuthSystem(user_class=User)
+    # 传入 flask_app 以便在应用启动前注册 QuizApp 路由
+    auth_system = AuthSystem(user_class=User, flask_app=app)
     app.register_blueprint(auth_system.bp, url_prefix='/auth')
 
     """
@@ -936,7 +937,8 @@ if __name__ == '__main__':
     rae = re_and_exc(user)
     input_intent = intent(user)
     avatar_input = avatar_text(user)
-    quiz_APP = QuizApp(user, host='0.0.0.0', port=50012)
+    # 将 QuizApp 路由注册到主 Flask app，使用5000端口
+    quiz_APP = QuizApp(user, external_app=app, host='0.0.0.0', port=5000)
     """
     #print(f"QuizApp initialized:")
     #print(f"  - Server will listen on: 0.0.0.0:{quiz_APP.port}")

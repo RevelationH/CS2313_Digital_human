@@ -16,14 +16,25 @@ import os
 
 
 class QuizApp:
-    def __init__(self, user_class, host='0.0.0.0', port=5001):
-        self.app = Flask(__name__)
-        self.app.config['SECRET_KEY'] = 'demo123'
+    # 类级别的标志，追踪路由是否已在外部app中注册
+    _routes_registered = {}
+    _template_context_registered = {}
+    
+    def __init__(self, user_class, external_app=None, host='0.0.0.0', port=5000, skip_setup=False):
+        # 如果传入了外部 Flask app，就使用它；否则创建新的
+        if external_app is not None:
+            self.app = external_app
+            self.is_external_app = True
+        else:
+            self.app = Flask(__name__)
+            self.app.config['SECRET_KEY'] = 'demo123'
+            self.is_external_app = False
         
         # 配置以支持反向代理和公网访问
         # 使 url_for 始终生成相对路径，不依赖请求头中的 Host
-        self.app.config['PREFERRED_URL_SCHEME'] = 'http'
-        self.app.config['APPLICATION_ROOT'] = '/'
+        if not self.is_external_app:
+            self.app.config['PREFERRED_URL_SCHEME'] = 'http'
+            self.app.config['APPLICATION_ROOT'] = '/'
         
         # 保存主机和端口配置
         self.host = host  # 0.0.0.0 表示监听所有网络接口
@@ -36,8 +47,17 @@ class QuizApp:
         self.db = fire_db()
 
         self.UserClass = user_class
-        self._setup_filters()
-        self._setup_routes()
+        
+        # 如果 skip_setup=True，跳过路由和过滤器设置（路由已预先注册）
+        if not skip_setup:
+            self._setup_filters()
+            self._setup_routes()
+            self._setup_template_context()
+        else:
+            print(f"QuizApp initialized in data-only mode (routes already registered)")
+            # 即使跳过设置，也需要注册模板上下文处理器
+            if self.is_external_app:
+                self._setup_template_context()
 
         # 存储用户实例
         self.current_user = None
@@ -45,9 +65,12 @@ class QuizApp:
 
         self._INVALID_CHARS = re.compile(r'[\/\\#?%]')
 
-        self._add_firewall_rule()
+        # 只有在不是外部app时才添加防火墙规则
+        if not self.is_external_app:
+            self._add_firewall_rule()
         
-        print(f"QuizApp initialized - Accessible at: http://{self.local_ip}:{self.port}")
+        if not skip_setup:
+            print(f"QuizApp initialized - Routes registered for port {self.port}")
 
     def _is_port_in_use(self, port):
         """检查端口是否已被占用"""
@@ -188,11 +211,13 @@ class QuizApp:
         """根据 request_host 构建 URL
         
         Args:
-            request_host: 用户访问的主机名（例如 "47.250.116.163:5000"）
+            request_host: 用户访问的主机名（例如 "digitalhuman.znbverynb.xin" 或 "47.250.116.163:5000"）
             path: URL路径
         """
         if request_host:
             try:
+                from flask import has_request_context, request as flask_request
+                
                 # 分离主机名和端口
                 if request_host.startswith('['):
                     # IPv6 地址
@@ -204,9 +229,23 @@ class QuizApp:
                     # 纯主机名或纯 IPv4（无端口）
                     hostname = request_host
                 
-                # 构造包含 QuizApp 端口的 URL
-                url = f"http://{hostname}:{self.port}{path}"
-                print(f"QuizApp URL (using request host): {url}")
+                # 判断协议：如果在请求上下文中，使用请求的协议；否则默认 http
+                scheme = 'http'
+                if has_request_context():
+                    scheme = flask_request.scheme  # 'http' 或 'https'
+                
+                # 判断是否是域名（包含字母）还是 IP 地址（纯数字和点）
+                is_domain = any(c.isalpha() for c in hostname.replace('[', '').replace(']', ''))
+                
+                if is_domain:
+                    # 域名访问（通过 nginx），不添加端口号
+                    url = f"{scheme}://{hostname}{path}"
+                    print(f"QuizApp URL (domain via nginx): {url}")
+                else:
+                    # IP 地址访问，需要添加端口号
+                    url = f"{scheme}://{hostname}:{self.port}{path}"
+                    print(f"QuizApp URL (direct IP): {url}")
+                
                 return url
             except Exception as e:
                 print(f"Error parsing request host: {e}, falling back to local IP")
@@ -227,27 +266,11 @@ class QuizApp:
         if use_request_host and has_request_context():
             try:
                 # 在 Flask 请求上下文中，获取用户访问的主机名
-                # request.host 包含主机名和端口，例如 "47.250.116.163:5000"
-                # 我们需要提取主机名部分，然后使用 QuizApp 的端口
                 host_with_port = request.host
                 
-                # 分离主机名和端口（处理 IPv6 地址的情况）
-                # IPv6 地址格式: [::1]:5000 或 [2001:db8::1]:5000
-                # IPv4 地址格式: 47.250.116.163:5000
-                if host_with_port.startswith('['):
-                    # IPv6 地址
-                    hostname = host_with_port.rsplit(']:', 1)[0] + ']'
-                elif ':' in host_with_port and host_with_port.count(':') == 1:
-                    # IPv4 地址带端口
-                    hostname = host_with_port.rsplit(':', 1)[0]
-                else:
-                    # 纯主机名或纯 IPv4（无端口）
-                    hostname = host_with_port
-                
-                # 构造包含 QuizApp 端口的 URL
-                url = f"http://{hostname}:{self.port}{path}"
-                print(f"QuizApp URL (using request host): {url}")
-                return url
+                # 使用 _build_url_from_request_host 方法来构建 URL
+                # 它会自动处理域名和 IP 的区别
+                return self._build_url_from_request_host(host_with_port, path)
             except Exception as e:
                 print(f"Error getting request host: {e}, falling back to local IP")
                 # 出错时回退到本地 IP
@@ -293,7 +316,7 @@ class QuizApp:
     """
 
     def start_in_background(self, request_host=None):
-        """在后台启动服务器并返回远程URL
+        """返回 Quiz 页面的 URL（不启动独立服务器，因为路由已注册到主应用）
         
         Args:
             request_host: 用户访问的主机名（例如 "47.250.116.163:5000"），
@@ -302,6 +325,13 @@ class QuizApp:
         # 保存 request_host 供后续使用
         self._request_host = request_host
         
+        # 如果使用外部app，直接返回URL（路由已经注册到主应用）
+        if self.is_external_app:
+            remote_url = self._build_url_from_request_host(request_host)
+            print(f"✓ QuizApp routes ready at: {remote_url}")
+            return remote_url
+        
+        # 以下是独立模式的逻辑（保留向后兼容）
         try:
             # 每次启动时重新获取IP地址，以防IP发生变化
             current_ip = self._get_local_ip()
@@ -425,28 +455,149 @@ class QuizApp:
     
         return False
     
+    def _setup_template_context(self):
+        """设置模板上下文处理器，提供自定义的 url_for"""
+        app_id = id(self.app)
+        
+        # 检查是否已经注册过（避免重复注册）
+        if self.is_external_app and app_id in QuizApp._template_context_registered:
+            print("Template context processor already registered, skipping...")
+            return
+        
+        # 需要在闭包外保存 self 的引用
+        quiz_app_instance = self
+        
+        @self.app.context_processor
+        def quiz_url_for_context():
+            """为模板提供一个能正确处理 QuizApp 路由的 url_for 函数"""
+            from flask import g
+            
+            def quiz_url_for(endpoint, **values):
+                from flask import url_for as flask_url_for
+                
+                # 尝试从请求上下文获取当前用户的 quiz_app
+                current_quiz_app = quiz_app_instance
+                if hasattr(g, 'user_components') and 'quiz_app' in g.user_components:
+                    current_quiz_app = g.user_components['quiz_app']
+                
+                if current_quiz_app.is_external_app:
+                    # 在外部app模式下，映射 endpoint 名称
+                    endpoint_map = {
+                        'dashboard': 'quiz_dashboard',
+                        'analysis': 'quiz_analysis',
+                        'wrongbook': 'quiz_wrongbook',
+                        'delete_account': 'quiz_delete_account',
+                        'practice': 'practice',  # practice 保持不变
+                    }
+                    mapped_endpoint = endpoint_map.get(endpoint, endpoint)
+                    try:
+                        return flask_url_for(mapped_endpoint, **values)
+                    except:
+                        # 如果失败，尝试直接返回路径
+                        return current_quiz_app.get_url_for(endpoint, **values)
+                else:
+                    # 独立模式，正常使用
+                    return flask_url_for(endpoint, **values)
+            
+            # 返回字典，将 url_for 注入模板上下文
+            return dict(url_for=quiz_url_for)
+        
+        # 标记已注册
+        if self.is_external_app:
+            QuizApp._template_context_registered[app_id] = True
+            print("Template context processor registered successfully")
+    
     def _setup_filters(self):
         """设置模板过滤器"""
-        self.app.add_template_filter(self._mcq_html_filter(), 'mcq_html')
-        self.app.add_template_filter(self._extract_mcq_options_filter(), 'extract_mcq_options')
+        # 如果使用外部app且过滤器已存在，跳过添加
+        if self.is_external_app:
+            # 检查过滤器是否已经存在
+            if 'mcq_html' not in self.app.jinja_env.filters:
+                try:
+                    self.app.add_template_filter(self._mcq_html_filter(), 'mcq_html')
+                except AssertionError:
+                    # 应用已经启动，手动添加到 jinja_env
+                    self.app.jinja_env.filters['mcq_html'] = self._mcq_html_filter()
+            
+            if 'extract_mcq_options' not in self.app.jinja_env.filters:
+                try:
+                    self.app.add_template_filter(self._extract_mcq_options_filter(), 'extract_mcq_options')
+                except AssertionError:
+                    # 应用已经启动，手动添加到 jinja_env
+                    self.app.jinja_env.filters['extract_mcq_options'] = self._extract_mcq_options_filter()
+        else:
+            # 独立模式，正常添加
+            self.app.add_template_filter(self._mcq_html_filter(), 'mcq_html')
+            self.app.add_template_filter(self._extract_mcq_options_filter(), 'extract_mcq_options')
 
     def _setup_routes(self):
-        #设置路由
-        # 添加练习视图
-        self.app.add_url_rule(
-            '/practice/<string:list_id>/<string:kp_name>',
-            view_func=PracticeView.as_view('practice', quiz_app=self),
-            methods=['GET', 'POST']
-        )
-
-        # 其他路由
-        self.app.route('/dashboard')(self.dashboard)
-        self.app.route('/analysis')(self.analysis)
-        self.app.route('/wrongbook')(self.wrongbook)
-        self.app.route('/delete_account', methods=['GET', 'POST'])(self.delete_account)
-        self.app.route('/logout')(self.logout)
-        self.app.route('/')(self.index)
-        self.app.route('/server_error')(self.server_error)  # 添加错误页面
+        """设置路由"""
+        # 如果使用外部app，检查路由是否已注册
+        app_id = id(self.app)
+        if self.is_external_app and app_id in QuizApp._routes_registered:
+            print("QuizApp routes already registered, skipping...")
+            return
+        
+        # 对于外部app，使用包装函数从请求上下文获取正确的 quiz_app 实例
+        if self.is_external_app:
+            # 添加练习视图
+            self.app.add_url_rule(
+                '/practice/<string:list_id>/<string:kp_name>',
+                view_func=PracticeView.as_view('practice', quiz_app=self),
+                methods=['GET', 'POST']
+            )
+            
+            # 只注册 QuizApp 特有的路由，避免与主应用冲突
+            # 使用唯一的 endpoint 名称
+            self.app.add_url_rule('/dashboard', 'quiz_dashboard', 
+                                  self._wrap_route_handler(self.dashboard), 
+                                  methods=['GET'])
+            self.app.add_url_rule('/analysis', 'quiz_analysis', 
+                                  self._wrap_route_handler(self.analysis), 
+                                  methods=['GET'])
+            self.app.add_url_rule('/wrongbook', 'quiz_wrongbook', 
+                                  self._wrap_route_handler(self.wrongbook), 
+                                  methods=['GET'])
+            self.app.add_url_rule('/delete_account', 'quiz_delete_account', 
+                                  self._wrap_route_handler(self.delete_account), 
+                                  methods=['GET', 'POST'])
+            # 不注册 /logout 和 /，避免与主应用冲突
+            # self.app.route('/logout')(self._wrap_route_handler(self.logout))
+            # self.app.route('/')(self._wrap_route_handler(self.index))
+        else:
+            # 独立模式，正常注册所有路由
+            self.app.add_url_rule(
+                '/practice/<string:list_id>/<string:kp_name>',
+                view_func=PracticeView.as_view('practice', quiz_app=self),
+                methods=['GET', 'POST']
+            )
+            self.app.route('/dashboard')(self.dashboard)
+            self.app.route('/analysis')(self.analysis)
+            self.app.route('/wrongbook')(self.wrongbook)
+            self.app.route('/delete_account', methods=['GET', 'POST'])(self.delete_account)
+            self.app.route('/logout')(self.logout)
+            self.app.route('/')(self.index)
+            self.app.route('/server_error')(self.server_error)
+        
+        # 标记路由已注册
+        if self.is_external_app:
+            QuizApp._routes_registered[app_id] = True
+            print("QuizApp routes registered successfully")
+    
+    def _wrap_route_handler(self, handler):
+        """包装路由处理函数，从请求上下文获取正确的 quiz_app 实例"""
+        def wrapped_handler(*args, **kwargs):
+            from flask import g
+            # 尝试从 g 对象获取当前用户的 quiz_app
+            if hasattr(g, 'user_components') and 'quiz_app' in g.user_components:
+                quiz_app = g.user_components['quiz_app']
+                # 使用正确的实例调用方法
+                return getattr(quiz_app, handler.__name__)(*args, **kwargs)
+            else:
+                # 回退到当前实例
+                return handler(*args, **kwargs)
+        wrapped_handler.__name__ = handler.__name__
+        return wrapped_handler
 
     def server_error(self):
         """服务器错误页面"""
@@ -514,6 +665,32 @@ class QuizApp:
     def safe_id(self, text: str, max_len: int = 150) -> str:
         text = self._INVALID_CHARS.sub('_', (text or '').strip())
         return text[:max_len] or 'untitled'
+    
+    def get_url_for(self, endpoint, **kwargs):
+        """获取路由URL，处理外部app模式下的endpoint名称差异"""
+        if self.is_external_app:
+            # 在外部app模式下，使用带前缀的endpoint名称或直接返回路径
+            endpoint_map = {
+                'dashboard': '/dashboard',
+                'analysis': '/analysis',
+                'wrongbook': '/wrongbook',
+                'delete_account': '/delete_account',
+                'login': '/auth/login',
+                'index': '/auth/login',  # 重定向到登录页
+            }
+            path = endpoint_map.get(endpoint)
+            if path:
+                return path
+            # 如果没有映射，尝试使用 quiz_ 前缀
+            try:
+                from flask import url_for
+                return url_for(f'quiz_{endpoint}', **kwargs)
+            except:
+                return f'/{endpoint}'
+        else:
+            # 独立模式，正常使用 url_for
+            from flask import url_for
+            return url_for(endpoint, **kwargs)
 
     """
     def run(self, **kwargs):
@@ -532,7 +709,7 @@ class QuizApp:
 
     def analysis(self):
         if not session.get('user_id'):
-            return redirect(url_for('login'))
+            return redirect(self.get_url_for('login'))
 
         user_id = session['user_id']
         wrong_questions_ref = self.db.collection('users').document(user_id).collection('wrong_questions')
@@ -564,12 +741,12 @@ class QuizApp:
 
     def wrongbook(self):
         if not session.get('user_id'):
-            return redirect(url_for('login'))
+            return redirect(self.get_url_for('login'))
 
         user = self.UserClass.get_by_username(session['user_id'])
         if not user:
             flash("User not found!")
-            return redirect(url_for('login'))
+            return redirect(self.get_url_for('login'))
 
         wrong_questions_ref = self.db.collection('users').document(user.username).collection('wrong_questions')
         keypoints = wrong_questions_ref.stream()
@@ -596,7 +773,7 @@ class QuizApp:
 
     def delete_account(self):
         if not session.get('user_id'):
-            return redirect(url_for('login'))
+            return redirect(self.get_url_for('login'))
 
         if request.method == 'POST':
             user_id = session['user_id']
@@ -608,17 +785,17 @@ class QuizApp:
             self.db.collection('users').document(user_id).delete()
             session.clear()
             flash("Your account has been deleted and all your data removed.")
-            return redirect(url_for('index'))
+            return redirect(self.get_url_for('index'))
 
         return render_template('delete_account.html')
 
     def logout(self):
         session.clear()
         self.current_user = None
-        return redirect(url_for('index'))
+        return redirect(self.get_url_for('index'))
 
     def index(self):
-        return redirect(url_for('dashboard'))
+        return redirect(self.get_url_for('dashboard'))
 
     def _delete_user_wrong_kp_index(self, user_id):
         """删除用户的错题索引"""
@@ -653,6 +830,13 @@ class AnswerRecord:
 class PracticeView(MethodView):
     def __init__(self, quiz_app):
         self.quiz_app = quiz_app
+    
+    def _get_quiz_app(self):
+        """获取正确的 quiz_app 实例（优先从请求上下文）"""
+        from flask import g
+        if hasattr(g, 'user_components') and 'quiz_app' in g.user_components:
+            return g.user_components['quiz_app']
+        return self.quiz_app
 
     def _canon(self, s: str) -> str:
         return (s or "").strip().casefold()
@@ -662,18 +846,20 @@ class PracticeView(MethodView):
         return m.group(1).upper() if m else None
 
     def _require_login(self):
-        if not self.quiz_app.current_user and not session.get('user_id'):
+        quiz_app = self._get_quiz_app()
+        if not quiz_app.current_user and not session.get('user_id'):
             # 创建默认用户
-            self.quiz_app.current_user = self.quiz_app.UserClass(username="2", password="demo")
+            quiz_app.current_user = quiz_app.UserClass(username="2", password="demo")
             session['user_id'] = "2"
             session['username'] = "2"
         return None
 
     def _get_kp_or_redirect(self, list_id: str, kp_name: str):
-        kp = KnowledgePoint.get_by_name(self.quiz_app.db, list_id, kp_name)
+        quiz_app = self._get_quiz_app()
+        kp = KnowledgePoint.get_by_name(quiz_app.db, list_id, kp_name)
         if not kp:
             flash("Knowledge point not found!")
-            return None, redirect(url_for('dashboard'))
+            return None, redirect(quiz_app.get_url_for('dashboard'))
         return kp, None
 
     def get(self, list_id: str, kp_name: str):
@@ -704,10 +890,11 @@ class PracticeView(MethodView):
         if redir:
             return redir
 
-        user = self.quiz_app.UserClass.get_by_username(session['user_id'])
+        quiz_app = self._get_quiz_app()
+        user = quiz_app.UserClass.get_by_username(session['user_id'])
         if not user:
             flash("User not found!")
-            return redirect(url_for('login'))
+            return redirect(quiz_app.get_url_for('login'))
 
         questions = kp.questions or []
         now_ts = datetime.now(timezone.utc)
@@ -740,7 +927,7 @@ class PracticeView(MethodView):
 
                 # 记录到 answer_records
                 AnswerRecord(
-                    self.quiz_app,
+                    quiz_app,
                     user_id=user.username,
                     question_id=str(q.get("id") or ""),
                     user_answer=user_ans_raw,
@@ -760,7 +947,7 @@ class PracticeView(MethodView):
                         "user_answer": user_ans_raw,
                         "timestamp": now_ts,
                     }
-                    wrong_questions_ref = self.quiz_app.db.collection('users').document(user.username).collection('wrong_questions')
+                    wrong_questions_ref = quiz_app.db.collection('users').document(user.username).collection('wrong_questions')
                     kp_ref = wrong_questions_ref.document(kp_name)
                     if not kp_ref.get().exists:
                         kp_ref.set({'id': kp_name, 'list_id': list_id}, merge=True)
