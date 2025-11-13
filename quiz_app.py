@@ -40,9 +40,12 @@ class QuizApp:
         self.host = host  # 0.0.0.0 表示监听所有网络接口
         self.port = port
 
-        self.local_ip = self._get_local_ip()
-        print(f"Device A IP address: {self.local_ip}")
-
+        # 延迟初始化：只在需要时扫描网络（节省启动时间和资源）
+        self._local_ip_cache = None
+        if not skip_setup:
+            self.local_ip = self._get_local_ip()
+            print(f"Device A IP address: {self.local_ip}")
+        
         # 初始化 Firebase
         self.db = fire_db()
 
@@ -83,8 +86,20 @@ class QuizApp:
                 return True
 
 
+    @property
+    def local_ip(self):
+        """延迟获取 local_ip，使用缓存避免重复扫描"""
+        if self._local_ip_cache is None:
+            self._local_ip_cache = self._get_local_ip()
+        return self._local_ip_cache
+    
+    @local_ip.setter
+    def local_ip(self, value):
+        """允许设置 local_ip"""
+        self._local_ip_cache = value
+    
     def _get_local_ip(self):
-        #动态获取设备A的局域网IP地址
+        """动态获取设备A的局域网IP地址"""
         try:
             # 方法1: 使用socket连接获取出站IP（这个可能返回错误的144.214.0.16）
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
