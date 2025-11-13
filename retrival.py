@@ -267,9 +267,9 @@ class learning_report():
 
         """
         prompt = (
-            "You are a personalized learning coach. "
+            "You are a personalized learning coach for C++ programming course. "
             "Based on the following student knowledge point data (in JSON), analyze the student's weak areas, "
-            "give concrete suggestions for improvement, and generate 3 targeted practice questions with answers for each weak knowledge point. "
+            "give concrete suggestions for improvement, and generate 1 to 3 targeted practice questions with answers for each weak knowledge point. Those question should be corresponding to the C++ programming course"
             "Questions should be relevant to the original knowledge points."
             "Please pay attention to the format of the generated answers; different content should be on a separate line."
             "\n\nStudent answer data:\n"
@@ -278,9 +278,9 @@ class learning_report():
         """
 
         prompt = (
-            "You are a personalized learning coach. "
+            "You are a personalized learning coach for C++ programming course. "
             "Based on the following student knowledge point data (in JSON), analyze the student's weak areas, "
-            "give concrete suggestions for improvement, and generate 3 targeted practice questions with answers for each weak knowledge point. "
+            "give concrete suggestions for improvement, and generate 1 to 3 targeted practice questions with answers for each weak knowledge point. Those question should be corresponding to the C++ programming course."
             "Questions should be relevant to the original knowledge points.\n\n"
     
             "Please format your response with clear line breaks and sections. Use the following structure exactly:\n\n"
@@ -337,7 +337,7 @@ class intent():
             },
             "QUIZ": {
                 "must_any": [
-                    "quiz", "exercise", "question", "test"
+                    "quiz", "exercise", "practice"
                 ],
                 "verbs": ["take", "do"],  
             },
