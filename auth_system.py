@@ -18,11 +18,8 @@ class AuthSystem:
         self._session_components_lock = threading.RLock()
         self._session_components = {}  # session_id -> components
         
-        # 全局共享实例（所有用户共享，节省内存）
+        # 全局共享的 QuizApp 实例（路由仅需注册一次）
         self._shared_quiz_app = None
-        self._shared_rae = None
-        self._shared_intent = None
-        self._shared_avatar_input = None
         self._quiz_app_routes_registered = False
         
         self._setup_routes()
@@ -70,51 +67,33 @@ class AuthSystem:
             return
         
         from quiz_app import QuizApp
-        from retrival import re_and_exc, intent, avatar_text
         
         # 创建共享的组件实例（所有用户共享，大幅节省内存）
         # 使用一个虚拟用户来初始化
         dummy_user = self.user_class("_dummy_", "_dummy_", False)
         
-        print("🔧 Creating shared components (all users will share these instances)...")
         self._shared_quiz_app = QuizApp(dummy_user, external_app=flask_app, host='0.0.0.0', port=5000)
-        self._shared_rae = re_and_exc(dummy_user)
-        self._shared_intent = intent(dummy_user)
-        self._shared_avatar_input = avatar_text(dummy_user)
         
         self._quiz_app_routes_registered = True
         print("✓ Shared components created successfully")
         print(f"  - QuizApp: {id(self._shared_quiz_app)}")
-        print(f"  - RAE: {id(self._shared_rae)}")
-        print(f"  - Intent: {id(self._shared_intent)}")
-        print(f"  - Avatar Input: {id(self._shared_avatar_input)}")
-        
-        # 显示内存状态
-        try:
-            process = psutil.Process(os.getpid())
-            memory_mb = process.memory_info().rss / 1024 / 1024
-            system_memory = psutil.virtual_memory()
-            print(f"📊 Current memory usage: {memory_mb:.2f} MB ({system_memory.percent}% of system)")
-            print(f"💡 All N users will share these {len([x for x in [self._shared_quiz_app, self._shared_rae, self._shared_intent, self._shared_avatar_input] if x])} component instances")
-        except:
-            pass
+        print(f"  - QuizApp: {id(self._shared_quiz_app)}")
     
     def _get_or_create_session_components(self, session_id, user):
-        """获取或创建Session特定的用户组件（极致优化版：所有组件共享）"""
+        """获取或创建Session特定的用户组件"""
+        from retrival import re_and_exc, intent, avatar_text
         with self._session_components_lock:
             if session_id not in self._session_components:
-                # 所有用户共享同一组件实例，大幅减少内存占用
-                # 只保存用户特定的数据（user 对象）
                 components = {
-                    'rae': self._shared_rae,           # 共享实例
-                    'input_intent': self._shared_intent,  # 共享实例
-                    'avatar_input': self._shared_avatar_input,  # 共享实例
-                    'quiz_app': self._shared_quiz_app,  # 共享实例
-                    'user': user,  # 仅用户对象是独立的
+                    'rae': re_and_exc(user),
+                    'input_intent': intent(user),
+                    'avatar_input': avatar_text(user),
+                    'quiz_app': self._shared_quiz_app,
+                    'user': user,
                     'last_accessed': time.time()
                 }
                 self._session_components[session_id] = components
-                print(f"✓ Session {session_id[:8]}... for user '{user.username}' (all components shared, minimal memory)")
+                print(f"✓ Session {session_id[:8]}... for user '{user.username}' initialized")
             
             # 更新最后访问时间
             self._session_components[session_id]['last_accessed'] = time.time()
@@ -325,10 +304,7 @@ class AuthSystem:
                     'details': sessions_info
                 },
                 'shared_components': {
-                    'quiz_app_id': id(self._shared_quiz_app) if self._shared_quiz_app else None,
-                    'rae_id': id(self._shared_rae) if self._shared_rae else None,
-                    'intent_id': id(self._shared_intent) if self._shared_intent else None,
-                    'avatar_input_id': id(self._shared_avatar_input) if self._shared_avatar_input else None
+                    'quiz_app_id': id(self._shared_quiz_app) if self._shared_quiz_app else None
                 }
             }
             

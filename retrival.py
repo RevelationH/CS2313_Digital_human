@@ -230,20 +230,24 @@ class learning_report():
     def ai_analysis(self):
         print("start analysis")
         wrong_questions_ref = self.fdb.read_wq('users', self.username, 'wrong_questions')
-        keypoints = wrong_questions_ref.stream()  
+        keypoints = list(wrong_questions_ref.stream())
+        print(f"[debug] user={self.username} keypoints_count={len(keypoints)}")
         kp_stats = {} 
         weak_points = []  
 
-        for keypoint_doc in keypoints:
+        for idx, keypoint_doc in enumerate(keypoints):
             keypoint_name = keypoint_doc.id  
+            print(f"[debug] keypoint[{idx}]={keypoint_name}")
 
             questions_ref = keypoint_doc.reference.collection('questions')
-            questions = questions_ref.stream()
+            questions = list(questions_ref.stream())
+            print(f"[debug]   questions_count={len(questions)}")
 
             wrong_count = 0
 
-            for question_doc in questions:
+            for q_idx, question_doc in enumerate(questions):
                 question_data = question_doc.to_dict()
+                print(f"[debug]     question[{q_idx}] data={question_data}")
                 user_answer = question_data.get('user_answer', '').strip()
                 std_answer = question_data.get('std_answer', '').strip()
 
