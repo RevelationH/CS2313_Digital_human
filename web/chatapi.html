@@ -160,6 +160,66 @@
             color: #fff;
         }
 
+        /* Markdown 样式 */
+        .message .message-content h1,
+        .message .message-content h2,
+        .message .message-content h3,
+        .message .message-content h4,
+        .message .message-content h5,
+        .message .message-content h6 {
+            margin: 0.6em 0 0.3em;
+            font-weight: 600;
+        }
+
+        .message .message-content p {
+            margin: 0.35em 0;
+            line-height: 1.6;
+        }
+
+        .message .message-content ul,
+        .message .message-content ol {
+            margin: 0.4em 0 0.4em 1.4em;
+            padding-left: 1.2em;
+        }
+
+        .message .message-content li + li {
+            margin-top: 0.2em;
+        }
+
+        .message .message-content code {
+            font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+            background: rgba(255,255,255,0.08);
+            padding: 0.1em 0.35em;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+
+        .message .message-content pre {
+            background: rgba(0,0,0,0.45);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 0.85em;
+            overflow-x: auto;
+            font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+            font-size: 0.9em;
+            line-height: 1.45;
+            margin: 0.7em 0;
+        }
+
+        .message .message-content pre code {
+            background: transparent;
+            padding: 0;
+        }
+
+        .message .message-content blockquote {
+            border-left: 4px solid rgba(255,255,255,0.35);
+            margin: 0.6em 0;
+            padding: 0.3em 0.9em;
+            color: #cfd8dc;
+            background: rgba(255,255,255,0.06);
+            border-radius: 4px;
+        }
+
         .avatar {
             width: 32px;
             height: 32px;
@@ -425,6 +485,8 @@ How can I help you today? 😎
 
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
     <script>
 
         /*function getSessionId() {
@@ -484,8 +546,18 @@ function getSessionId() {
             }
         }
 
+        /* ---------- Markdown 渲染 ---------- */
+        function renderMarkdown(markdownText) {
+            if (!markdownText) return '';
+            const rawHtml = window.marked ? window.marked.parse(markdownText) : markdownText;
+            if (window.DOMPurify) {
+                return window.DOMPurify.sanitize(rawHtml);
+            }
+            return rawHtml;
+        }
+
         /* ---------- 打字机效果 ---------- */
-        function typeWriter(ele, text, speed = 16) {
+        function typeWriter(ele, text, speed = 16, renderMarkdownAfter = true) {
             ele.textContent = '';          // 先清空
             let i = 0;
             const len = text.length;
@@ -494,6 +566,8 @@ function getSessionId() {
                 if (i < len) {
                     ele.textContent += text[i++];
                     requestAnimationFrame(pump);   // 每帧写 1 个字符
+                } else if (renderMarkdownAfter) {
+                    ele.innerHTML = renderMarkdown(text);
                 }
             }
             requestAnimationFrame(pump);
@@ -615,7 +689,15 @@ async function sendMessage() {
                 <div class="message-content"></div>
             `;
             const contentEle = msgDiv.querySelector('.message-content');
-            contentEle.textContent = content;                     // 立即展示 or 空串占位
+            if (content) {
+                if (sender === 'assistant') {
+                    contentEle.innerHTML = renderMarkdown(content);  // 初始直接渲染 markdown
+                } else {
+                    contentEle.textContent = content;
+                }
+            } else {
+                contentEle.textContent = '';
+            }
 
             const loading = document.getElementById('loading');
             chatContainer.insertBefore(msgDiv, loading);

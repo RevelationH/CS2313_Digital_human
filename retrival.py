@@ -282,32 +282,23 @@ class learning_report():
         """
 
         prompt = (
-            "You are a personalized learning coach for C++ programming course. "
-            "Based on the following student knowledge point data (in JSON), analyze the student's weak areas, "
-            "give concrete suggestions for improvement, and generate 1 to 3 targeted practice questions with answers for each weak knowledge point. Those question should be corresponding to the C++ programming course."
-            "Questions should be relevant to the original knowledge points.\n\n"
+            "You are a personalized learning coach for C++ programming course. Based on the following student knowledge point data (in JSON), analyze the student's weak areas, give concrete suggestions for improvement, and generate 1 to 3 targeted practice questions with answers for each weak knowledge point. Those question should be corresponding to the C++ programming course."
+            "Questions should be relevant to the original knowledge points."
+            "Please format your response with clear line breaks and sections. Use the following structure exactly: Weak-area Analysis"
+            "Concrete Improvement Suggestions"
+            "give 3 suggestions in ordered lists with markdown format"
     
-            "Please format your response with clear line breaks and sections. Use the following structure exactly:\n\n"
+            "Targeted Practice Questions"
+            "Knowledge Point: [Knowledge Point Name]"
+            "Question 1: [Question text]"
+            "Answer: [Answer]"
+            "Question 2: [Question text]"
+            "Answer: [Answer]"
+            "Question 3: [Question text]"
+            "Answer: [Answer]"
     
-            "Weak-area Analysis\n"
-            "[Your analysis here - use multiple lines if needed]\n\n"
-    
-            "Concrete Improvement Suggestions\n"
-            "1. [Suggestion 1]\n"
-            "2. [Suggestion 2]\n"
-            "3. [Suggestion 3]\n\n"
-    
-            "Targeted Practice Questions\n"
-            "Knowledge Point: [Knowledge Point Name]\n"
-            "Question 1: [Question text]\n"
-            "Answer: [Answer]\n\n"
-            "Question 2: [Question text]\n"
-            "Answer: [Answer]\n\n"
-            "Question 3: [Question text]\n"
-            "Answer: [Answer]\n\n"
-    
-            "Student answer data:\n"
-            f"{user_data}\n"
+            "Student answer data:"
+            f"{user_data}"
         )
 
 
