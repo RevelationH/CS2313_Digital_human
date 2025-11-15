@@ -146,7 +146,6 @@
             padding: 12px 16px;
             border-radius: 8px;
             line-height: 1.5;
-            white-space: pre-wrap;  /* 添加这一行 - 保留换行符 */
             word-wrap: break-word;  /* 可选：确保长单词也能换行 */
         }
 
@@ -171,19 +170,10 @@
             font-weight: 600;
         }
 
-        .message .message-content p {
-            margin: 0.35em 0;
-            line-height: 1.6;
-        }
-
         .message .message-content ul,
         .message .message-content ol {
-            margin: 0.4em 0 0.4em 1.4em;
+            margin: 0;
             padding-left: 1.2em;
-        }
-
-        .message .message-content li + li {
-            margin-top: 0.2em;
         }
 
         .message .message-content code {
@@ -252,6 +242,9 @@
             max-width: 800px;
             margin: 0 auto;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .input-box {
@@ -269,24 +262,48 @@
             transition: border-color .2s;
         }
 
-    .send-button {
-        position: absolute;
-        right: 8px; /* 增加右边距 */
-        top: 50%; /* 垂直居中 */
-        transform: translateY(-50%); /* 精确垂直居中 */
-        background-color: var(--primary);
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        padding: 8px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background-color .2s;
-        width: 32px; /* 固定宽度 */
-        height: 32px; /* 固定高度 */
-    }
+        .preset-prompts {
+            display: flex;
+            gap: 8px;
+        }
+
+        .preset-chip {
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color .2s, border-color .2s;
+        }
+
+        .preset-chip:hover {
+            background-color: rgba(33,150,243,0.2);
+            border-color: var(--primary);
+        }
+
+        .send-button-wrapper {
+            position: absolute;
+            right: 8px;
+            top: 73%;
+            transform: translateY(-50%);
+        }
+
+        .send-button {
+            background-color: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color .2s;
+            width: 32px;
+            height: 32px;
+        }
 
         .send-button:hover {
             background-color: #1976d2;
@@ -443,23 +460,15 @@
             <div class="chat-container" id="chatContainer">
                 <div class="message assistant">
                     <div class="avatar">AI</div>
-                    <div class="message-content">🤖 Hey there! Greetings, future coding master! 🚀
-
-I'm your personal CityU CS2313 AI Assistant, your all-in-one sidekick for acing this course! Think of me as a pocket-sized tutor, a walking encyclopedia, and your personal quiz master, all rolled into one.
-
-Curious about what I can do? Just ask me in your own words! For example:
-
-🎯 Feeling lost? Ask me something like: "What's this course all about?" or "Introduce the course." I'll give you a full breakdown.
-
-💡 Stuck on a topic? Try something like: "Explain what a loop is," or "Help me understand [concept]." I'll break it down for you.
-
-📝 Ready to test your skills? Say: "I want to practice," or "Generate some exercises for me." I'll whip up a fresh quiz on the spot!
-
-📊 Want to track your progress? Request: "Show me my learning report," or "Give me my study summary." I'll create your personal progress insights.
-
-How can I help you today? 😎
-
-💡 Pro tip: You can clear our conversation anytime using the "Clear Chat" button on the top right, or export our chat history with the "Export Chat" button to review later!
+                    <div class="message-content"><p>🤖 Hey there! Greetings, future coding master! 🚀</p>
+<p>I'm your personal CityU CS2313 AI Assistant, your all-in-one sidekick for acing this course! Think of me as a pocket-sized tutor, a walking encyclopedia, and your personal quiz master, all rolled into one.</p>
+<p>Curious about what I can do? Just ask me in your own words! For example:</p>
+<p>🎯 Feeling lost? Ask me something like: "What's this course all about?" or "Introduce the course." I'll give you a full breakdown.</p>
+<p>💡 Stuck on a topic? Try something like: "Explain what a loop is," or "Help me understand [concept]." I'll break it down for you.</p>
+<p>📝 Ready to test your skills? Say: "I want to practice," or "Generate some exercises for me." I'll whip up a fresh quiz on the spot!</p>
+<p>📊 Want to track your progress? Request: "Show me my learning report," or "Give me my study summary." I'll create your personal progress insights.</p>
+<p>How can I help you today? 😎</p>
+<p>💡 Pro tip: You can clear our conversation anytime using the "Clear Chat" button on the top right, or export our chat history with the "Export Chat" button to review later!</p>
 </div>
                 </div>
                 <div class="loading" id="loading">
@@ -471,14 +480,20 @@ How can I help you today? 😎
 
             <div class="input-container">
                 <div class="input-wrapper">
+                    <div class="preset-prompts">
+                        <button type="button" class="preset-chip" onclick="sendPresetMessage('quiz')">Quiz</button>
+                        <button type="button" class="preset-chip" onclick="sendPresetMessage('learning report')">Learning Report</button>
+                    </div>
                     <textarea class="input-box" id="inputBox" placeholder="Please input message..." rows="1"
                               onkeydown="handleKeyDown(event)"></textarea>
-                    <button class="send-button" id="sendButton" onclick="sendMessage()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                        </svg>
-                    </button>
+                    <div class="send-button-wrapper">
+                        <button class="send-button" id="sendButton" onclick="sendMessage()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -546,10 +561,60 @@ function getSessionId() {
             }
         }
 
+        function sendPresetMessage(text) {
+            inputBox.value = text;
+            sendMessage();
+        }
+
+        function normalizeListFormatting(text) {
+            const normalized = String(text ?? '').replace(/\r\n/g, '\n');
+            const lines = normalized.split('\n');
+            const out = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const orderedMatch = line.match(/^(\s*)(\d+)\.\s*$/);
+                const unorderedMatch = line.match(/^(\s*)([-*+])\s*$/);
+
+                if ((orderedMatch || unorderedMatch)) {
+                    const marker = orderedMatch
+                        ? `${orderedMatch[1]}${orderedMatch[2]}.`
+                        : `${unorderedMatch[1]}${unorderedMatch[2]}`;
+
+                    let j = i + 1;
+                    let nextContent = '';
+                    while (j < lines.length) {
+                        const candidate = lines[j];
+                        if (!candidate.trim()) {
+                            j++;
+                            continue;
+                        }
+                        if (/^\s*\d+\.\s*$/.test(candidate) || /^\s*[-*+]\s*$/.test(candidate)) {
+                            break;
+                        }
+                        nextContent = candidate.trim();
+                        j++;
+                        break;
+                    }
+
+                    if (nextContent) {
+                        out.push(`${marker} ${nextContent}`);
+                        i = j - 1;
+                        continue;
+                    }
+                }
+
+                out.push(line);
+            }
+
+            return out.join('\n');
+        }
+
         /* ---------- Markdown 渲染 ---------- */
         function renderMarkdown(markdownText) {
             if (!markdownText) return '';
-            const rawHtml = window.marked ? window.marked.parse(markdownText) : markdownText;
+            const normalized = normalizeListFormatting(markdownText);
+            const rawHtml = window.marked ? window.marked.parse(normalized) : normalized;
             if (window.DOMPurify) {
                 return window.DOMPurify.sanitize(rawHtml);
             }

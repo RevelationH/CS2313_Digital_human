@@ -97,14 +97,15 @@ class re_and_exc():
         return max(0, min(100, base + verb_bonus - length_penalty))
 
     def _llm_intent_fallback(self, user_input):
-        """classify intent via LLM into LEARNING_REPORT / LESSON_POINTS / NORMAL_CHAT."""
+        """classify intent via LLM into LEARNING_REPORT / QUIZ / NORMAL_CHAT."""
         try:
             prompt = (
-                "Classify the user query into exactly one of: LEARNING_REPORT, LESSON_POINTS, NORMAL_CHAT.\n"
-                "- LESSON_POINTS only if the user BOTH refers to a specific lesson scope (e.g., 'this lesson', 'Unit 3', 'today's class') "
-                "AND explicitly asks for a list/outline of points.\n"
-                "- LEARNING_REPORT if asking for a learning/study report/summary.\n"
-                "- Otherwise NORMAL_CHAT. Output only the label.\n\n"
+                "You are classifying the user's intent for a C++ course assistant.\n"
+                "You MUST output exactly one label: LEARNING_REPORT, QUIZ, NORMAL_CHAT.\n\n"
+                "- LEARNING_REPORT: ONLY if the user explicitly asks for a study/learning report or overall learning summary "
+                "(e.g., 'show me my learning report', 'generate my study summary for this course').\n"
+                "- QUIZ: if the user clearly wants to practice, take a quiz, do exercises, or test themselves.\n"
+                "- NORMAL_CHAT: for everything else, including asking concepts, explaining code, etc.\n\n"
                 f"User input: {user_input}\n"
                 "Label:"
             )
@@ -115,7 +116,7 @@ class re_and_exc():
                 max_tokens=5,
             )
             tag = (resp.choices[0].message.content or "").strip().upper()
-            if tag in {"LEARNING_REPORT", "LESSON_POINTS", "NORMAL_CHAT"}:
+            if tag in {"LEARNING_REPORT", "QUIZ", "NORMAL_CHAT"}:
                 return tag
         except Exception:
             pass
@@ -132,7 +133,7 @@ class re_and_exc():
         best_intent = max(scores, key=scores.get)
         best_score = scores[best_intent]
 
-        THRESH = 68
+        THRESH = 70
         if best_score >= THRESH:
             return best_intent
 
@@ -282,13 +283,16 @@ class learning_report():
         """
 
         prompt = (
+            "Please enter standard Markdown format that can be correctly processed by marked.min.js, and do not add unnecessary line breaks."
             "You are a personalized learning coach for C++ programming course. Based on the following student knowledge point data (in JSON), analyze the student's weak areas, give concrete suggestions for improvement, and generate 1 to 3 targeted practice questions with answers for each weak knowledge point. Those question should be corresponding to the C++ programming course."
             "Questions should be relevant to the original knowledge points."
             "Please format your response with clear line breaks and sections. Use the following structure exactly: Weak-area Analysis"
-            "Concrete Improvement Suggestions"
-            "give 3 suggestions in ordered lists with markdown format"
+            "## Concrete Improvement Suggestions:"
+            "1. [Suggestion 1]"
+            "2. [Suggestion 2]"
+            "3. [Suggestion 3]"
     
-            "Targeted Practice Questions"
+            "## Targeted Practice Questions"
             "Knowledge Point: [Knowledge Point Name]"
             "Question 1: [Question text]"
             "Answer: [Answer]"
@@ -325,8 +329,7 @@ class intent():
             "LEARNING_REPORT": {
                 "must_any": [
                     "learning report", "study report", "study summary", "study review",
-                    "weekly report", "monthly report", "reflection", "progress report",
-                    "study log", "learning recap"
+                    "weekly learning report", "learning recap"
                 ],
                 "verbs": ["output", "generate", "write", "create", "export", "summarize", "compile"],  
             },
@@ -365,10 +368,12 @@ class intent():
         """classify intent via LLM into LEARNING_REPORT / LESSON_POINTS / NORMAL_CHAT."""
         try:
             prompt = (
-                "Classify the user query into exactly one of: LEARNING_REPORT, NORMAL_CHAT.\n"
-                "- LESSON_POINTS only if the user BOTH refers to a specific lesson scope (e.g., 'this lesson', 'Unit 3', 'today's class') "
-                "AND explicitly asks for a list/outline of points.\n"
-                "- Otherwise NORMAL_CHAT. Output only the label.\n\n"
+                "You are classifying the user's intent for a C++ course assistant.\n"
+                "You MUST output exactly one label: LEARNING_REPORT, QUIZ, NORMAL_CHAT.\n\n"
+                "- LEARNING_REPORT: ONLY if the user explicitly asks for a study/learning report or overall learning summary "
+                "(e.g., 'show me my learning report', 'generate my study summary for this course').\n"
+                "- QUIZ: if the user clearly wants to practice, take a quiz, do exercises, or test themselves.\n"
+                "- NORMAL_CHAT: for everything else, including asking concepts, explaining code, etc.\n\n"
                 f"User input: {user_input}\n"
                 "Label:"
             )
@@ -396,7 +401,7 @@ class intent():
         best_intent = max(scores, key=scores.get)
         best_score = scores[best_intent]
 
-        THRESH = 68
+        THRESH = 75
         if best_score >= THRESH:
             return best_intent
 
