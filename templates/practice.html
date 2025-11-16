@@ -61,19 +61,19 @@
 
   <div class="card" role="region" aria-label="Practice questions">
     <form method="POST" id="practice-form">
+      <input type="hidden" name="page" value="{{ pagination.page if pagination else 1 }}">
       <ul class="q-list">
         {% for q in questions %}
-        {% set field_name = 'user_answer_' ~ q['question'] %}
-        {% set r = (results_map.get(q['question']) if results_map else none) %}
+        {% set global_idx = (start_index or 0) + loop.index0 %}
+        {% set field_name = 'user_answer_' ~ global_idx %}
+        {% set r = (results_map.get(global_idx|string) if results_map else none) %}
         {% set parsed = q.options if q.options else (q['question'] | extract_mcq_options) %}
         <li class="q-item">
-            <div class="q-title">{{ q['question'] | mcq_html }}</div>
-
+          <div class="q-title">{{ q['question'] | mcq_html }}</div>
 
           {% if parsed and parsed|length > 0 %}
             <div class="choices">
               {% for label, text in parsed %}
-              {# 单选的 value 直接用 A/B/C/D，后端已有 _pick_mcq 会识别 #}
               <label class="choice">
                 <input type="radio"
                        name="{{ field_name }}"
@@ -85,14 +85,19 @@
               {% endfor %}
             </div>
           {% else %}
-            {# 解析不到选项：回退为文本输入 #}
-            <textarea class="q-text" name="{{ field_name }}" placeholder="Your answer here">{{ (r.user_answer if r else '') }}</textarea>
+            <textarea class="q-text"
+                      name="{{ field_name }}"
+                      placeholder="Your answer here">{{ (r.user_answer if r else '') }}</textarea>
           {% endif %}
 
           {% if r %}
           <div class="result" aria-live="polite">
             <div>
-              {% if r.is_correct %}<span class="tag ok">✓ Correct</span>{% else %}<span class="tag bad">✗ Incorrect</span>{% endif %}
+              {% if r.is_correct %}
+                <span class="tag ok">✓ Correct</span>
+              {% else %}
+                <span class="tag bad">✗ Incorrect</span>
+              {% endif %}
             </div>
             <div><b>Correct answer:</b> {{ r.std_answer }}</div>
             {% if r.explanation %}<div><b>Explanation:</b> {{ r.explanation }}</div>{% endif %}
@@ -106,6 +111,18 @@
         <button type="submit" class="btn btn-p" id="submit-btn">Submit Answers</button>
         <a class="btn btn-s" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
       </div>
+
+      {% if pagination %}
+      <div class="toolbar" style="margin-top:12px; justify-content: center; gap: 16px;">
+        {% if pagination.page > 1 %}
+          <a class="btn btn-s" href="{{ url_for('practice', list_id=list_id, kp_name=kp_name, page=pagination.page - 1) }}">&larr; Previous</a>
+        {% endif %}
+        <span class="muted">Page {{ pagination.page }} / {{ pagination.total_pages }}</span>
+        {% if pagination.page < pagination.total_pages %}
+          <a class="btn btn-s" href="{{ url_for('practice', list_id=list_id, kp_name=kp_name, page=pagination.page + 1) }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+      {% endif %}
     </form>
   </div>
 </div>
@@ -115,7 +132,9 @@
   const form = document.getElementById('practice-form');
   const submit = document.getElementById('submit-btn');
   form?.addEventListener('submit', function(){
-    submit.disabled = true; submit.style.opacity=.85; submit.textContent='Submitting…';
+    submit.disabled = true;
+    submit.style.opacity = .85;
+    submit.textContent = 'Submitting…';
   });
 })();
 </script>

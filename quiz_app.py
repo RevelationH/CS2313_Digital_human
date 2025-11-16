@@ -2,6 +2,8 @@ import webbrowser
 import threading
 from flask.views import MethodView
 from datetime import datetime, timezone
+import math
+import time
 import re
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -148,36 +150,6 @@ class QuizApp:
     
         return "127.0.0.1"
 
-    """
-    def _add_firewall_rule(self):
-        #添加防火墙规则允许外部访问
-        if os.name == 'nt':  # Windows
-            try:
-                import subprocess
-                rule_name = f"Open TCP Port {self.port} for QuizApp"
-                # 检查规则是否已存在
-                result = subprocess.run([
-                    'netsh', 'advfirewall', 'firewall', 'show', 'rule',
-                    f'name={rule_name}'
-                ], capture_output=True, text=True)
-                
-                # 如果规则不存在，则添加
-                if "No rules match" in result.stdout:
-                    subprocess.run([
-                        'netsh', 'advfirewall', 'firewall', 'add', 'rule',
-                        f'name={rule_name}',
-                        'dir=in',
-                        'action=allow',
-                        'protocol=TCP',
-                        f'localport={self.port}'
-                    ], capture_output=True, text=True)
-                    print(f"Firewall rule added for port {self.port}")
-                else:
-                    print(f"Firewall rule for port {self.port} already exists")
-            except Exception as e:
-                print(f"Warning: Could not add firewall rule: {e}")
-    """
-
     def _add_firewall_rule(self):
         """添加防火墙规则允许外部访问"""
         if os.name == 'nt':  # Windows
@@ -223,12 +195,7 @@ class QuizApp:
 
 
     def _build_url_from_request_host(self, request_host, path="/dashboard"):
-        """根据 request_host 构建 URL
-        
-        Args:
-            request_host: 用户访问的主机名（例如 "digitalhuman.znbverynb.xin" 或 "47.250.116.163:5000"）
-            path: URL路径
-        """
+        """根据 request_host 构建 URL"""
         if request_host:
             try:
                 from flask import has_request_context, request as flask_request
@@ -271,72 +238,26 @@ class QuizApp:
         return url
     
     def get_remote_url(self, path="/dashboard", use_request_host=True):
-        """生成设备B可以访问的URL
-        
-        Args:
-            path: URL路径
-            use_request_host: 如果为True且在请求上下文中，使用请求的主机名（支持公网访问）
-                             如果为False，使用本地检测到的IP地址
-        """
+        """生成设备B可以访问的URL"""
         if use_request_host and has_request_context():
             try:
                 # 在 Flask 请求上下文中，获取用户访问的主机名
                 host_with_port = request.host
                 
                 # 使用 _build_url_from_request_host 方法来构建 URL
-                # 它会自动处理域名和 IP 的区别
                 return self._build_url_from_request_host(host_with_port, path)
             except Exception as e:
                 print(f"Error getting request host: {e}, falling back to local IP")
-                # 出错时回退到本地 IP
                 url = f"http://{self.local_ip}:{self.port}{path}"
                 print(f"QuizApp URL (fallback to local IP): {url}")
                 return url
         else:
-            # 使用本地检测到的IP地址
             url = f"http://{self.local_ip}:{self.port}{path}"
             print(f"QuizApp URL (using local IP): {url}")
             return url
 
-    """
-    def start_in_background(self):
-        #在后台启动服务器并返回远程URL
-        try:
-            # 每次启动时重新获取IP地址，以防IP发生变化
-            current_ip = self._get_local_ip()
-            if current_ip != self.local_ip:
-                print(f"IP address changed from {self.local_ip} to {current_ip}")
-                self.local_ip = current_ip
-            
-            if self.server_thread and self.server_thread.is_alive():
-                print("QuizApp server is already running")
-                return self.get_remote_url()
-            
-            # 启动服务器线程
-            print("Starting QuizApp server in background thread...")
-            self.server_thread = threading.Thread(target=self._start_server_async, daemon=True)
-            self.server_thread.start()
-            
-            # 在新线程中等待服务器启动
-            threading.Thread(target=self._wait_for_server, daemon=True).start()
-            
-            # 返回设备B可以访问的URL
-            remote_url = self.get_remote_url()
-            print(f"QuizApp will be accessible at: {remote_url}")
-            return remote_url
-            
-        except Exception as e:
-            print(f"Error starting QuizApp in background: {e}")
-            return self.get_remote_url()
-    """
-
     def start_in_background(self, request_host=None):
-        """返回 Quiz 页面的 URL（不启动独立服务器，因为路由已注册到主应用）
-        
-        Args:
-            request_host: 用户访问的主机名（例如 "47.250.116.163:5000"），
-                         用于生成正确的跳转URL。如果为 None，将使用本地IP。
-        """
+        """返回 Quiz 页面的 URL（不启动独立服务器，因为路由已注册到主应用）"""
         # 保存 request_host 供后续使用
         self._request_host = request_host
         
@@ -376,29 +297,12 @@ class QuizApp:
                 print(f"✓ QuizApp is ready at: {remote_url}")
                 return remote_url
             else:
-                # 如果服务器启动失败，返回URL让用户尝试
                 print(f"✗ QuizApp server failed to start, but you can try: {self._build_url_from_request_host(request_host)}")
                 return self._build_url_from_request_host(request_host)
             
         except Exception as e:
             print(f"Error starting QuizApp in background: {e}")
             return self._build_url_from_request_host(request_host)
-
-    """
-    def _start_server_async(self):
-        #异步启动服务器
-        try:
-            print(f"Starting Flask server on {self.host}:{self.port}")
-            self.app.run(
-                host=self.host, 
-                port=self.port, 
-                debug=False, 
-                use_reloader=False, 
-                threaded=True
-            )
-        except Exception as e:
-            print(f"Error in server thread: {e}")
-    """
 
     def _start_server_async(self):
         """异步启动服务器"""
@@ -420,33 +324,10 @@ class QuizApp:
         except Exception as e:
             print(f"Unexpected error in server thread: {e}")
 
-
-    """
-    def _wait_for_server(self):
-        #等待服务器启动
-        import time
-        max_wait = 15
-        # 使用localhost来测试服务器是否启动
-        test_url = f"http://127.0.0.1:{self.port}/"
-        
-        for i in range(max_wait):
-            time.sleep(1)
-            try:
-                import urllib.request
-                urllib.request.urlopen(test_url, timeout=1)
-                # 服务器已启动，打印可访问的URL
-                remote_url = self.get_remote_url()
-                print(f"QuizApp server is ready and accessible at: {remote_url}")
-                break
-            except Exception as e:
-                if i == max_wait - 1:
-                    print(f"Warning: QuizApp server might not be fully ready: {e}")
-    """
-
     def _wait_for_server(self):
         """等待服务器启动"""
         import time
-        max_wait = 20  # 增加等待时间
+        max_wait = 20  
         test_url = f"http://127.0.0.1:{self.port}/dashboard"
     
         for i in range(max_wait):
@@ -455,7 +336,7 @@ class QuizApp:
                 import urllib.request
                 response = urllib.request.urlopen(test_url, timeout=2)
                 if response.getcode() == 200:
-                    # 服务器已启动，打印可访问的URL（使用保存的 request_host）
+                    # 服务器已启动，打印可访问的URL
                     request_host = getattr(self, '_request_host', None)
                     remote_url = self._build_url_from_request_host(request_host)
                     print(f"✓ QuizApp server is ready and accessible at: {remote_url}")
@@ -465,7 +346,7 @@ class QuizApp:
                     print(f"✗ QuizApp server failed to start: {e}")
                     print(f"  Please check if port {self.port} is available")
                     return False
-                elif i % 5 == 0:  # 每5秒打印一次状态
+                elif i % 5 == 0: 
                     print(f"  Waiting for QuizApp server... ({i+1}/{max_wait} seconds)")
     
         return False
@@ -577,8 +458,6 @@ class QuizApp:
                                   self._wrap_route_handler(self.delete_account), 
                                   methods=['GET', 'POST'])
             # 不注册 /logout 和 /，避免与主应用冲突
-            # self.app.route('/logout')(self._wrap_route_handler(self.logout))
-            # self.app.route('/')(self._wrap_route_handler(self.index))
         else:
             # 独立模式，正常注册所有路由
             self.app.add_url_rule(
@@ -598,6 +477,10 @@ class QuizApp:
         if self.is_external_app:
             QuizApp._routes_registered[app_id] = True
             print("QuizApp routes registered successfully")
+    
+    def get_cached_knowledge_point(self, list_id, kp_name, include_questions=True):
+        """Load knowledge point directly (no long-lived cache to minimize memory)."""
+        return KnowledgePoint.get_by_name(self.db, list_id, kp_name, include_questions=include_questions)
     
     def _wrap_route_handler(self, handler):
         """包装路由处理函数，从请求上下文获取正确的 quiz_app 实例"""
@@ -632,9 +515,6 @@ class QuizApp:
             </body>
         </html>
         """
-
-
-    
 
     class MCQHtmlFilter:
         _re_options_split = re.compile(r'Options?\s*:\s*', flags=re.IGNORECASE)
@@ -707,11 +587,6 @@ class QuizApp:
             from flask import url_for
             return url_for(endpoint, **kwargs)
 
-    """
-    def run(self, **kwargs):
-        self.app.run(**kwargs)
-    """
-
     def dashboard(self):
         if not session.get('user_id'):
             # 创建用户实例
@@ -719,7 +594,7 @@ class QuizApp:
             session['user_id'] = "2"
             session['username'] = "2"
 
-        kps = KnowledgePoint.get_all(self.db)
+        kps = KnowledgePoint.get_all_summary(self.db)
         return render_template('dashboard.html', kps=kps, username=session.get('username'))
 
     def analysis(self):
@@ -758,12 +633,9 @@ class QuizApp:
         if not session.get('user_id'):
             return redirect(self.get_url_for('login'))
 
-        user = self.UserClass.get_by_username(session['user_id'])
-        if not user:
-            flash("User not found!")
-            return redirect(self.get_url_for('login'))
+        user_id = session['user_id']
 
-        wrong_questions_ref = self.db.collection('users').document(user.username).collection('wrong_questions')
+        wrong_questions_ref = self.db.collection('users').document(user_id).collection('wrong_questions')
         keypoints = wrong_questions_ref.stream()
         wrong_answers = []
 
@@ -818,6 +690,7 @@ class QuizApp:
         for kp_doc in wrong_questions_ref.stream():
             kp_doc.reference.delete()
 
+
 class AnswerRecord:
     def __init__(self, quiz_app, user_id, question_id, user_answer, is_correct, timestamp, knowledge_point, ai_question=None, ai_answer=None):
         self.quiz_app = quiz_app
@@ -842,7 +715,10 @@ class AnswerRecord:
             'ai_answer': self.ai_answer
         })
 
+
 class PracticeView(MethodView):
+    PAGE_SIZE = 5
+
     def __init__(self, quiz_app):
         self.quiz_app = quiz_app
     
@@ -869,13 +745,38 @@ class PracticeView(MethodView):
             session['username'] = "2"
         return None
 
-    def _get_kp_or_redirect(self, list_id: str, kp_name: str):
+    def _get_kp_or_redirect(self, list_id: str, kp_name: str, include_questions=True):
         quiz_app = self._get_quiz_app()
-        kp = KnowledgePoint.get_by_name(quiz_app.db, list_id, kp_name)
+        kp = quiz_app.get_cached_knowledge_point(list_id, kp_name, include_questions=include_questions)
         if not kp:
             flash("Knowledge point not found!")
-            return None, redirect(quiz_app.get_url_for('dashboard'))
+            return kp, redirect(quiz_app.get_url_for('dashboard'))
         return kp, None
+
+    def _get_page_from_request(self):
+        source = request.args if request.method == 'GET' else request.form
+        try:
+            page = int(source.get('page', 1))
+            return max(1, page)
+        except (TypeError, ValueError):
+            return 1
+
+    def _paginate_questions(self, questions, page):
+        total = len(questions)
+        page_size = self.PAGE_SIZE
+        total_pages = max(1, math.ceil(total / page_size)) if total else 1
+        page = max(1, min(page, total_pages))
+        start = (page - 1) * page_size
+        end = start + page_size
+        subset = questions[start:end]
+        return {
+            "questions": subset,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_questions": total,
+            "start_index": start
+        }
 
     def get(self, list_id: str, kp_name: str):
         need = self._require_login()
@@ -886,14 +787,20 @@ class PracticeView(MethodView):
         if redir:
             return redir
 
-        questions = kp.questions or []
+        questions = kp.questions or kp.get_questions()
+        pagination = self._paginate_questions(questions, self._get_page_from_request())
+        page_questions = pagination["questions"]
+        if not page_questions:
+            flash("No questions available for this knowledge point.")
         return render_template(
             'practice.html',
-            questions=questions,
+            questions=page_questions,
             kp_name=kp_name,
             list_id=list_id,
             results_map=None,
-            summary=None
+            summary=None,
+            pagination=pagination,
+            start_index=pagination["start_index"]
         )
 
     def post(self, list_id: str, kp_name: str):
@@ -906,23 +813,42 @@ class PracticeView(MethodView):
             return redir
 
         quiz_app = self._get_quiz_app()
-        user = quiz_app.UserClass.get_by_username(session['user_id'])
-        if not user:
+        if not session.get('user_id'):
             flash("User not found!")
             return redirect(quiz_app.get_url_for('login'))
 
-        questions = kp.questions or []
+        user_id = session['user_id']
+
+        questions = kp.questions or kp.get_questions()
+        pagination = self._paginate_questions(questions, self._get_page_from_request())
+        page_questions = pagination["questions"]
+        start_index = pagination["start_index"]
+
+        if not page_questions:
+            flash("No questions available on this page.")
+            return render_template(
+                'practice.html',
+                questions=[],
+                kp_name=kp_name,
+                list_id=list_id,
+                results_map=None,
+                summary=None,
+                pagination=pagination,
+                start_index=start_index
+            )
+
         now_ts = datetime.now(timezone.utc)
         answered = 0
         correct = 0
         results_map = {}
 
-        for q in questions:
+        for idx, q in enumerate(page_questions):
             q_text = q.get("question") or ""
             if not q_text:
                 continue
 
-            form_key = f"user_answer_{q_text}"
+            global_idx = start_index + idx
+            form_key = f"user_answer_{global_idx}"
             user_ans_raw = (request.form.get(form_key) or "").strip()
             std_ans_raw = (q.get("answer") or "").strip()
             explanation = (q.get("explanation") or "").strip()
@@ -943,7 +869,7 @@ class PracticeView(MethodView):
                 # 记录到 answer_records
                 AnswerRecord(
                     quiz_app,
-                    user_id=user.username,
+                    user_id=user_id,
                     question_id=str(q.get("id") or ""),
                     user_answer=user_ans_raw,
                     is_correct=is_correct,
@@ -962,7 +888,7 @@ class PracticeView(MethodView):
                         "user_answer": user_ans_raw,
                         "timestamp": now_ts,
                     }
-                    wrong_questions_ref = quiz_app.db.collection('users').document(user.username).collection('wrong_questions')
+                    wrong_questions_ref = quiz_app.db.collection('users').document(user_id).collection('wrong_questions')
                     kp_ref = wrong_questions_ref.document(kp_name)
                     if not kp_ref.get().exists:
                         kp_ref.set({'id': kp_name, 'list_id': list_id}, merge=True)
@@ -971,7 +897,7 @@ class PracticeView(MethodView):
                 if is_correct:
                     correct += 1
 
-            results_map[q_text] = {
+            results_map[str(global_idx)] = {
                 "user_answer": user_ans_raw,
                 "std_answer": std_ans_raw,
                 "is_correct": is_correct if user_ans_raw else False,
@@ -986,20 +912,27 @@ class PracticeView(MethodView):
 
         return render_template(
             'practice.html',
-            questions=questions,
+            questions=page_questions,
             kp_name=kp_name,
             list_id=list_id,
             results_map=results_map,
-            summary=summary
+            summary=summary,
+            pagination=pagination,
+            start_index=start_index
         )
 
+
 class KnowledgePoint:
-    def __init__(self, db, list_id, name, description="", questions=None):
+    def __init__(self, db, list_id, name, description="", questions=None, question_count=None):
         self.db = db
         self.list_id = list_id
         self.name = name
         self.description = description
-        self.questions = questions if questions else []
+        self.questions = list(questions) if questions else []
+        if question_count is not None:
+            self.question_count = question_count
+        else:
+            self.question_count = len(self.questions)
 
     @staticmethod
     def _doc_ref(db, list_id, name):
@@ -1015,10 +948,11 @@ class KnowledgePoint:
             'name': self.name,
             'description': self.description,
             'questions': self.questions,
+            'question_count': len(self.questions),
         })
 
     @staticmethod
-    def get_all(db, list_id=None):
+    def get_all(db, list_id=None, include_questions=False):
         kps = []
         if list_id:
             docs = (db.collection('knowledge_points')
@@ -1030,18 +964,28 @@ class KnowledgePoint:
 
         for doc in docs:
             data = doc.to_dict() or {}
+            questions_data = data.get('questions')
+            question_count = data.get('question_count')
+            if question_count is None:
+                question_count = len(questions_data) if questions_data else 0
+            questions = list(questions_data) if (include_questions and questions_data) else []
             kp = KnowledgePoint(
                 db,
                 data.get('list') or doc.reference.parent.parent.id,
                 data.get('name') or doc.id,
                 data.get('description', ""),
-                data.get('questions', []),
+                questions,
+                question_count=question_count,
             )
             kps.append(kp)
         return kps
+    
+    @staticmethod
+    def get_all_summary(db, list_id=None):
+        return KnowledgePoint.get_all(db, list_id=list_id, include_questions=False)
 
     @staticmethod
-    def get_by_name(db, list_id, kp_name):
+    def get_by_name(db, list_id, kp_name, include_questions=True):
         doc_ref = (
             db.collection('knowledge_points')
             .document(list_id)
@@ -1051,14 +995,27 @@ class KnowledgePoint:
         snap = doc_ref.get()
         if snap.exists:
             data = snap.to_dict()
+            questions = data.get('questions', []) if include_questions else []
+            question_count = data.get('question_count')
+            if question_count is None:
+                question_count = len(data.get('questions', [])) if include_questions else 0
             return KnowledgePoint(
                 db,
                 list_id=data['list'],
                 name=data['name'],
                 description=data['description'],
-                questions=data.get('questions', [])
+                questions=questions,
+                question_count=question_count
             )
         return None
-
-
-
+    
+    def get_questions(self):
+        if self.questions:
+            return self.questions
+        if not self.db:
+            return []
+        doc = self._doc_ref(self.db, self.list_id, self.name).get()
+        data = doc.to_dict() or {}
+        self.questions = data.get('questions', []) or []
+        self.question_count = len(self.questions)
+        return self.questions

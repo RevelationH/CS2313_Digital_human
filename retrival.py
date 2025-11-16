@@ -21,7 +21,7 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-61cf109d660d4ba6a9d80ebf38737f06")
 
 class re_and_exc():
-    def __init__(self, user : User):
+    def __init__(self, user : User, shared_rag=None):
 
         load_dotenv()
         """
@@ -70,7 +70,11 @@ class re_and_exc():
 
         self.analysis = learning_report(user)
 
-        self.course_rag = rag(DEEPSEEK_API_KEY)
+        # 使用共享 RAG 实例（如果提供）或创建新的（向后兼容）
+        if shared_rag is not None:
+            self.course_rag = shared_rag
+        else:
+            self.course_rag = rag(DEEPSEEK_API_KEY)
 
         self.model = "deepseek-chat"
 

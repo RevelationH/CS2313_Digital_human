@@ -97,7 +97,7 @@
             <div class="kp-desc ghost">No description</div>
             {% endif %}
             <div class="kp-actions">
-              <span class="badge">{{ kp.questions|length if kp.questions else 0 }} Q</span>
+              <span class="badge">{{ kp.question_count if kp.question_count is not none else (kp.questions|length if kp.questions else 0) }} Q</span>
               <a class="link" href="{{ url_for('practice', list_id=kp.list_id, kp_name=kp.name) }}">Practice →</a>
             </div>
           </div>
