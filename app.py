@@ -449,6 +449,10 @@ async def human(request):
         # 解析请求参数
         params = await request.json()
         sessionid = params.get('sessionid',0)
+        
+        # 获取对话历史（如果有）
+        conversation_history = params.get('history', [])
+        print(f"User {user.username}: received history with {len(conversation_history)} messages")
             
         if params.get('interrupt'):
             pass
@@ -463,7 +467,8 @@ async def human(request):
                 quiz_url = await asyncio.to_thread(quiz_APP.start_in_background, request_host)
                 print(f"User {user.username}: Quiz system ready at: {quiz_url}")
 
-                rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+                # 传递对话历史给 rae
+                rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent, conversation_history)
                 avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
                     
                 return web.Response(
@@ -478,7 +483,8 @@ async def human(request):
                     }),
                 )
 
-            rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent)
+            # 传递对话历史给 rae
+            rae_answer = await asyncio.to_thread(rae.user_answer, params['text'], answer_intent, conversation_history)
             avatar_answer = await asyncio.to_thread(avatar_input.user_answer, rae_answer, answer_intent)
             print(f"User {user.username}: {avatar_answer}")
                 

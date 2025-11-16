@@ -199,13 +199,43 @@ class re_and_exc():
         out = self.course_rag.rag_answer(question=user_input)
         return out["answer"]
 
-    def user_answer(self, user_input, intent):
-        #intent = self.intent.route_intent(user_input)
+    def user_answer(self, user_input, intent, conversation_history=None):
+        """
+        处理用户输入并生成回复
+        
+        Args:
+            user_input: 用户输入的文本
+            intent: 意图分类结果
+            conversation_history: 对话历史记录列表，格式为 [{"role": "user/assistant", "content": "..."}]
+        """
+        # 如果提供了对话历史，使用它；否则使用实例的历史
+        if conversation_history is not None:
+            self.history = conversation_history
+            print(f"Using provided conversation history: {len(self.history)} messages")
+        
         print("intent:", intent)
         if intent == "LEARNING_REPORT":
             answer = self.generate_learning_report(user_input, self.history)
         elif intent == "NORMAL_CHAT":
-            answer = self.course_rag.rag_answer(question=user_input)
+            # 对于普通对话，结合历史记录和 RAG 结果
+            rag_answer = self.course_rag.rag_answer(question=user_input)
+            
+            # 如果有对话历史，让 LLM 结合历史和 RAG 结果回答
+            if self.history and len(self.history) > 0:
+                context_prompt = f"""You are a helpful C++ course assistant. 
+Based on the course materials and conversation history, answer the user's question.
+
+Course material answer: {rag_answer}
+
+Please provide a contextually appropriate response considering the conversation history."""
+                
+                messages = self.build_messages(user_input, self.history)
+                # 在系统提示中添加 RAG 内容
+                messages[0]["content"] = context_prompt
+                answer = self.chat_with_model(messages)
+            else:
+                answer = rag_answer
+                
         elif intent == "QUIZ":
             system_prompt = (
                 "You are a virtual digital human who speaks English. Now, a user wants to take a test, and you need to tell them you are ready and ask them to follow the instructions on the webpage."

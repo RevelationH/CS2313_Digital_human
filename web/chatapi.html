@@ -503,6 +503,9 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
     <script>
+        // 全局对话历史记录（保留最近10轮对话）
+        let conversationHistory = [];
+        const MAX_HISTORY_LENGTH = 10;
 
         /*function getSessionId() {
     // 从cookie中获取session_id
@@ -721,7 +724,8 @@ async function sendMessage() {
                 text: msg,
                 type: 'echo',
                 interrupt: true,
-                sessionid: +sessionId
+                sessionid: +sessionId,
+                history: conversationHistory  // 发送对话历史
             }),
         });
         
@@ -731,17 +735,53 @@ async function sendMessage() {
         // 检查是否是 Quiz 响应
         if (json.action === 'open_quiz' && json.quiz_url) {
             window.open(json.quiz_url, '_blank');
-            const botEle = addMessage(json.reply || 'Quiz system started!', 'assistant');
-            typeWriter(botEle, json.reply || 'Quiz system started!');
+            const replyText = json.reply || 'Quiz system started!';
+            const botEle = addMessage(replyText, 'assistant');
+            typeWriter(botEle, replyText);
+            
+            // 更新对话历史
+            updateConversationHistory(msg, replyText);
         } else {
+            const replyText = json.reply || '（无返回）';
             const botEle = addMessage('', 'assistant');
-            typeWriter(botEle, json.reply || '（无返回）');
+            typeWriter(botEle, replyText);
+            
+            // 更新对话历史
+            updateConversationHistory(msg, replyText);
         }
     } catch (err) {
         hideLoading();
+        const errorMsg = '出错：' + err;
         const botEle = addMessage('', 'assistant');
-        typeWriter(botEle, '出错：' + err);
+        typeWriter(botEle, errorMsg);
     }
+}
+
+/**
+ * 更新对话历史记录
+ * @param {string} userMessage - 用户消息
+ * @param {string} assistantMessage - AI回复
+ */
+function updateConversationHistory(userMessage, assistantMessage) {
+    // 添加用户消息
+    conversationHistory.push({
+        role: 'user',
+        content: userMessage
+    });
+    
+    // 添加AI回复
+    conversationHistory.push({
+        role: 'assistant',
+        content: assistantMessage
+    });
+    
+    // 保持历史记录在合理长度内（最多保留最近的对话）
+    // 每轮对话包含2条消息（用户+助手），所以保留 MAX_HISTORY_LENGTH*2 条
+    if (conversationHistory.length > MAX_HISTORY_LENGTH * 2) {
+        conversationHistory = conversationHistory.slice(-MAX_HISTORY_LENGTH * 2);
+    }
+    
+    console.log('Updated conversation history:', conversationHistory.length, 'messages');
 }
 
         /* ---------- 把消息塞进聊天框 ---------- */
@@ -797,6 +837,11 @@ async function sendMessage() {
 
         function clearChat() {
             if (!confirm('Are you sure you want to clear the chat?')) return;
+            
+            // 清空对话历史
+            conversationHistory = [];
+            console.log('Conversation history cleared');
+            
             document.querySelectorAll('.message').forEach(m => m.remove());
             addMessage(`🤖 Hey there! Greetings, future coding master! 🚀
 
